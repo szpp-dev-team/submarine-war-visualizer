@@ -11,7 +11,8 @@ abstract class Geometry {
 
 
 abstract class MyColor {
-    static readonly lightGray = '#eee';
+    static readonly whiteGray = '#eee';
+    static readonly lightGray = '#999';
     static readonly darkGray = '#333';
     static readonly submarine_red = '#CB2400';
     static readonly submarine_blue = '#236CCA'
@@ -135,7 +136,7 @@ class BattleScene implements Scene {
     }
 
     private _draw_back(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.lightGray;
+        ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 }
