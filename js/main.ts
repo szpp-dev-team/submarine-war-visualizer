@@ -14,8 +14,8 @@ abstract class MyColor {
     static readonly whiteGray = '#eee';
     static readonly lightGray = '#999';
     static readonly darkGray = '#333';
-    static readonly submarine_red = '#CB2400';
-    static readonly submarine_blue = '#236CCA'
+    static readonly team1_red = '#CB2400';
+    static readonly team2_blue = '#236CCA'
 }
 
 interface Scene {
