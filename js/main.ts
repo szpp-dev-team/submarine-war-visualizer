@@ -88,6 +88,12 @@ class Cell {
         this.borderThickness = Cell.DEFAULT_BORDER_THICKNESS;
         this.isBorderHighlighted = false;
     }
+
+    highlightBorder(color: string, thickness: number = Cell.DEFAULT_BORDER_THICKNESS): void {
+        this.borderColor = color;
+        this.borderThickness = thickness;
+        this.isBorderHighlighted = true;
+    }
 }
 
 
@@ -307,9 +313,7 @@ class InitialPositionInputScene implements Scene {
         };
         const onMouseEnterCell = (cell: Cell) => {
             cell.fillColor = '#ffffe9'
-            cell.isBorderHighlighted = true;
-            cell.borderColor = '#292929';
-            cell.borderThickness = 2;
+            cell.highlightBorder('#292929');
         }
         const onMouseLeaveCell = (cell: Cell) => {
             cell.becomeDefaultAppearance();
