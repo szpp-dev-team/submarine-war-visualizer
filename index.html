@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.min.css">
+    <link rel="stylesheet" href="./css/style.css" />
+    <title>潜水艦撃沈ゲーム ビジュアライザ</title>
+</head>
+<body>
+
+<header>
+    <h1>潜水艦撃沈ゲーム Visualizer</h1>
+</header>
+
+<main>
+    <div class="wrapper">
+        <div id="team-name-inputs">
+            <input type="text" id="team1-name" placeholder="Team1's name">
+            <div class="m-auto">VS</div>
+            <input type="text" id="team2-name" placeholder="Team2's name">
+        </div>
+        <canvas id="main-canvas"></canvas>
+        <div class="is-size-3 has-text-centered mb-2" id="guide-message"></div>
+        <div class="buttons are-medium" id="game-controller">
+            <!-- <button class="button is-dark is-rounded" id="btn-undo">戻る</button> -->
+            <!-- <div class="m-auto" id="actions"> -->
+            <!--     <button class="button is-link is-rounded" id="btn-action1">Attack</button> -->
+            <!--     <button class="button is-link is-rounded" id="btn-action2">Move</button> -->
+            <!-- </div> -->
+            <!-- <button class="button is-primary is-rounded" id="btn-ok">OK</button> -->
+        </div>
+    </div>
+</main>
+
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+header {
+    width: 100%;
+    background-color: #339;
+    padding: 10px;
+    margin-bottom: 30px;
+}
+
+header > h1 {
+    width: fit-content;
+    margin: auto;
+    color: white;
+    font-size: 28px;
+}
+.wrapper {
+    width: fit-content;
+    margin: 0 auto;
+}
+
+input[type="text"] {
+    margin: 10px 0;
+    padding: 5px;
+}
+
+#team-name-inputs {
+    display: flex;
+    justify-content: space-between;
+}
+
+#team-name-inputs input {
+    font-size: 20px;
+    width: 16em;
+}
+
+#team2-name {
+    text-align: right;
+}
+
+.m-auto {
+    margin: auto;
+}
+
+#game-controller {
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+}
