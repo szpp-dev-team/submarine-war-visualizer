@@ -76,6 +76,7 @@ class Cell {
     fillColor: string;
     borderColor: string;
     borderThickness: number;
+    isBorderHighlighted: boolean = false;
 
     constructor(public readonly row: number, public readonly col: number) {
         this.becomeDefaultAppearance();
@@ -85,26 +86,70 @@ class Cell {
         this.fillColor = Cell.DEFAULT_FILL_COLOR;
         this.borderColor = Cell.DEFAULT_BORDER_COLOR;
         this.borderThickness = Cell.DEFAULT_BORDER_THICKNESS;
+        this.isBorderHighlighted = false;
     }
 }
 
 
 class CellEventDispatcher {
-    onMouseClickCell: EventListener;
-    onMouseEnterCell: EventListener;
-    onMouseLeaveCell: EventListener;
+    onMouseClickCell: (c: Cell) => void;
+    onMouseEnterCell: (c: Cell) => void;
+    onMouseLeaveCell: (c: Cell) => void;
+    onMouseMoveCell: (c: Cell) => void;
 
-    constructor(public cells: Cell[]) {
+    private canvasMouseClickHandler: EventHandlerNonNull;
+    private canvasMouseMoveHandler: EventHandlerNonNull;
+
+    constructor(public gridView: GridView) {
     }
 
-    notifyMouseClicked(evt: MouseEvent): void {
-        for (let cell of this.cells) {
+    hookMeInto(eventSource: HTMLElement): void {
+        this.canvasMouseClickHandler = ((evt: MouseEvent) => {
+            const mouseX = evt.clientX - eventSource.offsetLeft;
+            const mouseY = evt.clientY - eventSource.offsetTop;
+            for (let cell of this.gridView.cells) {
+                if (this._doesCellContainsP(cell, mouseX, mouseY)) {
+                    this.onMouseClickCell(cell);
+                    return;
+                }
+            }
+        });
 
-        }
+        this.canvasMouseMoveHandler = ((evt: MouseEvent) => {
+            const mouseX = evt.clientX - eventSource.offsetLeft;
+            const mouseY = evt.clientY - eventSource.offsetTop;
+
+            for (let cell of this.gridView.cells) {
+                const hovered = this._doesCellContainsP(cell, mouseX, mouseY);
+
+                if (cell.isMouseHovering && !hovered) {
+                    cell.isMouseHovering = false;
+                    this.onMouseLeaveCell(cell);
+                } else if (!cell.isMouseHovering && hovered) {
+                    cell.isMouseHovering = true;
+                    this.onMouseEnterCell(cell);
+                }
+
+                if (hovered) {
+                    this.onMouseMoveCell(cell);
+                }
+            }
+        });
+
+        eventSource.addEventListener('click', this.canvasMouseClickHandler, false);
+        eventSource.addEventListener('mousemove', this.canvasMouseMoveHandler, false);
     }
 
-    notifyMouseMoved(evt: MouseEvent): void {
+    unhookMeFrom(eventSource: HTMLElement): void {
+        eventSource.removeEventListener('click', this.canvasMouseClickHandler, false);
+        eventSource.removeEventListener('mousemove', this.canvasMouseMoveHandler, false);
+    }
 
+    private _doesCellContainsP(cell: Cell, pointX: number, pointY: number): boolean {
+        const {x: leftX, y: topY} = this.gridView.getCellPosition(cell.row, cell.col);
+        const rightX = leftX + this.gridView.cellWidth;
+        const bottomY = topY + this.gridView.cellHeight;
+        return (leftX < pointX && pointX < rightX && topY < pointY && pointY < bottomY);
     }
 }
 
@@ -135,9 +180,9 @@ class GridView {
         return this.cellHeight * this.nrow;
     }
 
-    getCellPosition(row: number, col: number): {x: number, y: number} {
-        const px = this.leftX + this.cellWidth * row;
-        const py = this.topY + this.cellHeight * col;
+    getCellPosition(row: number, col: number): { x: number, y: number } {
+        const py = this.topY + this.cellHeight * row;
+        const px = this.leftX + this.cellWidth * col;
         return {x: px, y: py};
     }
 
@@ -146,6 +191,8 @@ class GridView {
     }
 
     private _drawCells(ctx: CanvasRenderingContext2D): void {
+        const borderHighlightedCells: Cell[] = [];
+
         for (let cell of this.cells) {
             ctx.fillStyle = cell.fillColor;
             ctx.strokeStyle = cell.borderColor;
@@ -153,9 +200,21 @@ class GridView {
             const pos = this.getCellPosition(cell.row, cell.col);
             ctx.fillRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
             ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
+
+            if (cell.isBorderHighlighted) {
+                borderHighlightedCells.push(cell);
+            }
+        }
+
+        for (let cell of borderHighlightedCells) {
+            ctx.strokeStyle = cell.borderColor;
+            ctx.lineWidth = cell.borderThickness;
+            const pos = this.getCellPosition(cell.row, cell.col);
+            ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
         }
     }
 }
+
 
 class TitleScene implements Scene {
     sceneManager: SceneManager;
@@ -205,6 +264,7 @@ class TitleScene implements Scene {
 class InitialPositionInputScene implements Scene {
     sceneManager: SceneManager;
     gridView: GridView;
+    cellEventDispatcher: CellEventDispatcher;
 
     constructor(sceneManager: SceneManager) {
         const cellWidth = 100;
@@ -214,12 +274,16 @@ class InitialPositionInputScene implements Scene {
         const canvas = this.sceneManager.canvas;
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
         this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height);
+
+        this.cellEventDispatcher = new CellEventDispatcher(this.gridView);
     }
 
     setup(): void {
+        this._mouseEventSetup();
     }
 
     tearDown(): void {
+        this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
     }
 
     update(timestamp: number): void {
@@ -233,6 +297,33 @@ class InitialPositionInputScene implements Scene {
     private _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    private _mouseEventSetup(): void {
+        const canvas = this.sceneManager.canvas;
+
+        const onMouseClickCell = (cell: Cell) => {
+            console.log("[Cell Clicked]", cell);
+        };
+        const onMouseEnterCell = (cell: Cell) => {
+            cell.fillColor = '#ffffe9'
+            cell.isBorderHighlighted = true;
+            cell.borderColor = '#292929';
+            cell.borderThickness = 2;
+        }
+        const onMouseLeaveCell = (cell: Cell) => {
+            cell.becomeDefaultAppearance();
+            canvas.style.cursor = 'default';
+        }
+        const onMouseMoveCell = (cell: Cell) => {
+            canvas.style.cursor = 'pointer';
+        }
+
+        this.cellEventDispatcher.onMouseClickCell = onMouseClickCell;
+        this.cellEventDispatcher.onMouseEnterCell = onMouseEnterCell;
+        this.cellEventDispatcher.onMouseLeaveCell = onMouseLeaveCell;
+        this.cellEventDispatcher.onMouseMoveCell = onMouseMoveCell;
+        this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
     }
 }
 
