@@ -19,38 +19,38 @@ abstract class MyColor {
 }
 
 interface Scene {
-    sceneChanger: SceneChanger;
-    setup: (sceneChanger_: SceneChanger) => void;
+    sceneManager: SceneManager;
+    setup: () => void;
     tearDown: () => void;
     update: (timestamp: number) => void;
     draw: (ctx: CanvasRenderingContext2D) => void;
 }
 
 
-interface SceneChanger {
+interface SceneManager {
     canvas: HTMLCanvasElement;
     changeScene: (nextScene: Scene) => void;
 }
 
 
-class Visualizer implements SceneChanger {
+class Visualizer implements SceneManager {
     readonly canvas: HTMLCanvasElement;
     readonly ctx: CanvasRenderingContext2D;
     curScene: Scene;
 
-    constructor(canvas: HTMLCanvasElement, scene: Scene) {
+    constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.curScene = scene;
+        this.curScene = null;
 
         this.canvas.width = CANVAS_WIDTH;
         this.canvas.height = CANVAS_HEIGHT;
-        scene.setup(this);
-
         this.ctx.textAlign = 'center';
     }
 
-    run(): void {
+    run(firstScene: Scene): void {
+        this.curScene = firstScene;
+        this.curScene.setup();
         const animationLoop = (timestamp: number): void => {
             this.curScene.update(timestamp);
             this.ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -63,7 +63,7 @@ class Visualizer implements SceneChanger {
     changeScene(nextScene: Scene): void {
         this.curScene.tearDown();
         this.curScene = nextScene;
-        this.curScene.setup(this);
+        this.curScene.setup();
     }
 }
 
@@ -104,24 +104,26 @@ class Cell {
 
 
 class TitleScene implements Scene {
-    sceneChanger: SceneChanger;
+    sceneManager: SceneManager;
     private readonly clickHandler: EventListener;
 
-    constructor() {
+    constructor(sceneManager: SceneManager) {
+        this.sceneManager = sceneManager;
+
         this.clickHandler = () => {
             console.log("[TitleScene#clickHandler] Clicked!");
             let battleScene = new BattleScene();
             this.sceneChanger.changeScene(battleScene);
         };
+
+        this.sceneManager.canvas.addEventListener('click', this.clickHandler, false);
     }
 
-    setup(sceneChanger: SceneChanger): void {
-        this.sceneChanger = sceneChanger;
-        this.sceneChanger.canvas.addEventListener('click', this.clickHandler, false);
+    setup(): void {
     }
 
     tearDown(): void {
-        this.sceneChanger.canvas.removeEventListener('click', this.clickHandler, false);
+        this.sceneManager.canvas.removeEventListener('click', this.clickHandler, false);
     }
 
     update(timestamp: number): void {
@@ -147,9 +149,12 @@ class TitleScene implements Scene {
 
 
 class BattleScene implements Scene {
-    sceneChanger: SceneChanger;
+    sceneManager: SceneManager;
 
-    setup(sceneChanger: SceneChanger): void {
+    constructor(sceneManager: SceneManager) {
+    }
+
+    setup(): void {
     }
 
     tearDown(): void {
@@ -178,7 +183,7 @@ class BattleScene implements Scene {
 
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('main-canvas') as HTMLCanvasElement;
-    const titleScene = new TitleScene();
-    const visualizer = new Visualizer(canvas, titleScene);
-    visualizer.run();
+    const visualizer = new Visualizer(canvas);
+    const titleScene = new TitleScene(visualizer);
+    visualizer.run(titleScene);
 });
