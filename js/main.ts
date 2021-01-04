@@ -130,19 +130,22 @@ class TitleScene implements Scene {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        this._draw_back(ctx);
-        this._draw_message(ctx);
+        this._drawBack(ctx);
+        this._drawMessage(ctx);
     }
 
-    private _draw_message(ctx: CanvasRenderingContext2D): void {
+    private _drawMessage(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.darkGray;
         ctx.font = '32px sans-serif'
         const msg = "潜水艦の初期配置を入力してOKボタンを押してください";
         ctx.fillText(msg, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
 
-    private _draw_back(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.lightGray;
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+}
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 }
