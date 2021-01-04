@@ -67,6 +67,41 @@ class Visualizer implements SceneChanger {
     }
 }
 
+class Cell {
+    static readonly DEFAULT_FILL_COLOR = MyColor.whiteGray;
+    static readonly DEFAULT_BORDER_COLOR = MyColor.lightGray;
+    static readonly DEFAULT_BORDER_THICKNESS = 2;
+
+    isMouseHovering: boolean = false;
+    fillColor: string;
+    borderColor: string;
+    borderThickness: number;
+
+    constructor(public x: number,
+                public y: number,
+                public width: number,
+                public height: number,
+                public readonly row: number,
+                public readonly col: number
+    ) {
+        this.becomeDefaultAppearance();
+    }
+
+    becomeDefaultAppearance(): void {
+        this.fillColor = Cell.DEFAULT_FILL_COLOR;
+        this.borderColor = Cell.DEFAULT_BORDER_COLOR;
+        this.borderThickness = Cell.DEFAULT_BORDER_THICKNESS;
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = this.fillColor;
+        ctx.strokeStyle = this.borderColor;
+        ctx.lineWidth = this.borderThickness;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+    }
+}
+
 
 class TitleScene implements Scene {
     sceneChanger: SceneChanger;
