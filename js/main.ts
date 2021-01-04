@@ -77,6 +77,7 @@ class Cell {
     borderColor: string;
     borderThickness: number;
     isBorderHighlighted: boolean = false;
+    mouseCursorStyle: string = 'pointer';
 
     constructor(public readonly row: number, public readonly col: number) {
         this.becomeDefaultAppearance();
@@ -101,7 +102,6 @@ class CellEventDispatcher {
     onMouseClickCell: (c: Cell) => void;
     onMouseEnterCell: (c: Cell) => void;
     onMouseLeaveCell: (c: Cell) => void;
-    onMouseMoveCell: (c: Cell) => void;
 
     private canvasMouseClickHandler: EventHandlerNonNull;
     private canvasMouseMoveHandler: EventHandlerNonNull;
@@ -125,6 +125,8 @@ class CellEventDispatcher {
             const mouseX = evt.clientX - eventSource.offsetLeft;
             const mouseY = evt.clientY - eventSource.offsetTop;
 
+            let mouseCursor = 'default';
+
             for (let cell of this.gridView.cells) {
                 const hovered = this._doesCellContainsP(cell, mouseX, mouseY);
 
@@ -137,9 +139,11 @@ class CellEventDispatcher {
                 }
 
                 if (hovered) {
-                    this.onMouseMoveCell(cell);
+                    mouseCursor = cell.mouseCursorStyle;
                 }
             }
+
+            eventSource.style.cursor = mouseCursor;
         });
 
         eventSource.addEventListener('click', this.canvasMouseClickHandler, false);
@@ -317,16 +321,11 @@ class InitialPositionInputScene implements Scene {
         }
         const onMouseLeaveCell = (cell: Cell) => {
             cell.becomeDefaultAppearance();
-            canvas.style.cursor = 'default';
-        }
-        const onMouseMoveCell = (cell: Cell) => {
-            canvas.style.cursor = 'pointer';
         }
 
         this.cellEventDispatcher.onMouseClickCell = onMouseClickCell;
         this.cellEventDispatcher.onMouseEnterCell = onMouseEnterCell;
         this.cellEventDispatcher.onMouseLeaveCell = onMouseLeaveCell;
-        this.cellEventDispatcher.onMouseMoveCell = onMouseMoveCell;
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
     }
 }
