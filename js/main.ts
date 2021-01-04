@@ -77,13 +77,7 @@ class Cell {
     borderColor: string;
     borderThickness: number;
 
-    constructor(public x: number,
-                public y: number,
-                public width: number,
-                public height: number,
-                public readonly row: number,
-                public readonly col: number
-    ) {
+    constructor(public readonly row: number, public readonly col: number) {
         this.becomeDefaultAppearance();
     }
 
@@ -92,16 +86,76 @@ class Cell {
         this.borderColor = Cell.DEFAULT_BORDER_COLOR;
         this.borderThickness = Cell.DEFAULT_BORDER_THICKNESS;
     }
+}
 
-    draw(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = this.fillColor;
-        ctx.strokeStyle = this.borderColor;
-        ctx.lineWidth = this.borderThickness;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+class CellEventDispatcher {
+    onMouseClickCell: EventListener;
+    onMouseEnterCell: EventListener;
+    onMouseLeaveCell: EventListener;
+
+    constructor(public cells: Cell[]) {
+    }
+
+    notifyMouseClicked(evt: MouseEvent): void {
+        for (let cell of this.cells) {
+
+        }
+    }
+
+    notifyMouseMoved(evt: MouseEvent): void {
+
     }
 }
 
+
+class GridView {
+    readonly cells: Cell[] = [];
+    leftX: number = 0;
+    topY: number = 0;
+
+    constructor(public readonly nrow: number,
+                public readonly ncol: number,
+                public cellWidth: number,
+                public cellHeight: number
+    ) {
+        // row行 col列 のセルを生成して配列に格納する。
+        for (let row = 0; row < this.nrow; ++row) {
+            for (let col = 0; col < this.ncol; ++col) {
+                this.cells.push(new Cell(row, col));
+            }
+        }
+    }
+
+    get gridWidth(): number {
+        return this.cellWidth * this.ncol;
+    }
+
+    get gridHeight(): number {
+        return this.cellHeight * this.nrow;
+    }
+
+    getCellPosition(row: number, col: number): {x: number, y: number} {
+        const px = this.leftX + this.cellWidth * row;
+        const py = this.topY + this.cellHeight * col;
+        return {x: px, y: py};
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        this._drawCells(ctx);
+    }
+
+    private _drawCells(ctx: CanvasRenderingContext2D): void {
+        for (let cell of this.cells) {
+            ctx.fillStyle = cell.fillColor;
+            ctx.strokeStyle = cell.borderColor;
+            ctx.lineWidth = cell.borderThickness;
+            const pos = this.getCellPosition(cell.row, cell.col);
+            ctx.fillRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
+            ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
+        }
+    }
+}
 
 class TitleScene implements Scene {
     sceneManager: SceneManager;
@@ -112,8 +166,8 @@ class TitleScene implements Scene {
 
         this.clickHandler = () => {
             console.log("[TitleScene#clickHandler] Clicked!");
-            let battleScene = new BattleScene();
-            this.sceneChanger.changeScene(battleScene);
+            let nextScene = new InitialPositionInputScene(this.sceneManager);
+            this.sceneManager.changeScene(nextScene);
         };
 
         this.sceneManager.canvas.addEventListener('click', this.clickHandler, false);
@@ -146,6 +200,38 @@ class TitleScene implements Scene {
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 }
+
+
+class InitialPositionInputScene implements Scene {
+    sceneManager: SceneManager;
+    gridView: GridView;
+
+    constructor(sceneManager: SceneManager) {
+        const cellWidth = 100;
+        const cellHeight = 100;
+        this.sceneManager = sceneManager;
+        this.gridView = new GridView(N, N, cellWidth, cellHeight);
+        const canvas = this.sceneManager.canvas;
+        this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height);
+    }
+
+    setup(): void {
+    }
+
+    tearDown(): void {
+    }
+
+    update(timestamp: number): void {
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        this._drawBack(ctx);
+        this.gridView.draw(ctx);
+    }
+
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 }
