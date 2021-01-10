@@ -1,5 +1,5 @@
-const CANVAS_WIDTH = 860;
-const CANVAS_HEIGHT = 640;
+const CANVAS_WIDTH = 960;
+const CANVAS_HEIGHT = 720;
 const N = 5;
 
 
