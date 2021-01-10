@@ -4,6 +4,7 @@ const N = 5;
 
 const TEAM_A_NAME_INPUT = document.getElementById('teamA-name') as HTMLInputElement;
 const TEAM_B_NAME_INPUT = document.getElementById('teamB-name') as HTMLInputElement;
+const GUIDE_MESSAGE_ELEM = document.getElementById('guide-message') as HTMLDivElement;
 
 
 function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
@@ -595,6 +596,7 @@ class InitialPositionInputScene implements Scene {
     }
 
     setup(): void {
+        GUIDE_MESSAGE_ELEM.innerText = "初期配置を設定してください。\nセルをクリックして潜水艦の有無を切り替えられます。";
         this._mouseEventSetup();
 
         this.canvasWrapper.appendChild(this.teamAShowButton);
@@ -603,6 +605,7 @@ class InitialPositionInputScene implements Scene {
     }
 
     tearDown(): void {
+        GUIDE_MESSAGE_ELEM.innerText = "";
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
 
         this.canvasWrapper.removeChild(this.teamAShowButton);
@@ -714,7 +717,25 @@ class InitialPositionInputScene implements Scene {
     }
 
     private _onBattleButtonClicked(): void {
+        try {
+            this._validatePlacement();
+        } catch (e) {
+            GUIDE_MESSAGE_ELEM.style.color = 'red';
+            GUIDE_MESSAGE_ELEM.innerText = e.message;
+            return;
+        }
+        GUIDE_MESSAGE_ELEM.innerText = "";
+        const nextScene = new BattleScene(this.sceneManager);
+        this.sceneManager.changeScene(nextScene);
+    }
 
+    private _validatePlacement(): void {
+        if (this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A).length != 4) {
+            throw new Error("TeamAの配置が不正です。ちょうど4個配置してください。");
+        }
+        if (this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B).length != 4) {
+            throw new Error("TeamBの配置が不正です。ちょうど4個配置してください。");
+        }
     }
 }
 
