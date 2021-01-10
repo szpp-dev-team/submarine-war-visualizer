@@ -720,7 +720,9 @@ class InitialPositionInputScene implements Scene {
             return;
         }
         GUIDE_MESSAGE_ELEM.innerText = "";
-        const nextScene = new BattleScene(this.sceneManager);
+        const nextScene = new BattleScene(this.sceneManager,
+            this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A),
+            this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B));
         this.sceneManager.changeScene(nextScene);
     }
 
@@ -738,7 +740,9 @@ class InitialPositionInputScene implements Scene {
 class BattleScene implements Scene {
     sceneManager: SceneManager;
 
-    constructor(sceneManager: SceneManager) {
+    constructor(sceneManager: SceneManager, teamAInitialPlacement: Submarine[], teamBInitialPlacement: Submarine[]) {
+        console.log("[BattleScene constructor] teamA initial placement:", teamAInitialPlacement);
+        console.log("[BattleScene constructor] teamB initial placement:", teamBInitialPlacement);
     }
 
     setup(): void {
