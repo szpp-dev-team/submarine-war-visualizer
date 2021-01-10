@@ -1,6 +1,10 @@
-const CANVAS_WIDTH = 860;
-const CANVAS_HEIGHT = 640;
+const CANVAS_WIDTH = 960;
+const CANVAS_HEIGHT = 720;
 const N = 5;
+
+const TEAM_A_NAME_INPUT = document.getElementById('teamA-name') as HTMLInputElement;
+const TEAM_B_NAME_INPUT = document.getElementById('teamB-name') as HTMLInputElement;
+const GUIDE_MESSAGE_ELEM = document.getElementById('guide-message') as HTMLDivElement;
 
 
 function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
@@ -15,6 +19,14 @@ function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
 abstract class Geometry {
     static centerPos(elementLength: number, containerLength: number): number {
         return (containerLength - elementLength) / 2;
+    }
+
+    static textRectBounding(ctx: CanvasRenderingContext2D, text: string): { w: number, h: number } {
+        const rect = ctx.measureText(text);
+        return {
+            w: rect.width,
+            h: rect.actualBoundingBoxAscent + rect.actualBoundingBoxDescent
+        };
     }
 }
 
@@ -135,8 +147,9 @@ class CellEventDispatcher {
 
     hookMeInto(eventSource: HTMLElement): void {
         this.canvasMouseClickHandler = ((evt: MouseEvent) => {
-            const mouseX = evt.clientX - eventSource.offsetLeft;
-            const mouseY = evt.clientY - eventSource.offsetTop;
+            const rect = eventSource.getBoundingClientRect();
+            const mouseX = evt.clientX - rect.left;
+            const mouseY = evt.clientY - rect.top;
             for (let cell of this.gridView.cells) {
                 if (this._doesCellContainsP(cell, mouseX, mouseY)) {
                     this.onMouseClickCell(cell);
@@ -146,8 +159,9 @@ class CellEventDispatcher {
         });
 
         this.canvasMouseMoveHandler = ((evt: MouseEvent) => {
-            const mouseX = evt.clientX - eventSource.offsetLeft;
-            const mouseY = evt.clientY - eventSource.offsetTop;
+            const rect = eventSource.getBoundingClientRect();
+            const mouseX = evt.clientX - rect.left;
+            const mouseY = evt.clientY - rect.top;
 
             let mouseCursor = 'default';
 
@@ -222,6 +236,7 @@ class GridView {
 
     draw(ctx: CanvasRenderingContext2D): void {
         this._drawCells(ctx);
+        this._drawHeaders(ctx);
     }
 
     private _drawCells(ctx: CanvasRenderingContext2D): void {
@@ -245,6 +260,46 @@ class GridView {
             ctx.lineWidth = cell.borderThickness;
             const pos = this.getCellPosition(cell.row, cell.col);
             ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
+        }
+    }
+
+    private _drawHeaders(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+        ctx.fillStyle = "#333";
+        this._drawRowHeader(ctx);
+        this._drawColHeader(ctx);
+        ctx.restore();
+    }
+
+    private _drawRowHeader(ctx: CanvasRenderingContext2D): void {
+        ctx.font = Math.floor(this.cellHeight * 0.3) + "px monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "top";
+
+        const charCodeA = "A".charCodeAt(0);
+
+        for (let row = 0; row < this.nrow; ++row) {
+            const text = String.fromCharCode(charCodeA + row);
+            const rect = Geometry.textRectBounding(ctx, text);
+            const x = this.leftX - 15;
+            const y = this.getCellPosition(row, 0).y + Geometry.centerPos(rect.h, this.cellHeight);
+            ctx.fillText(text, x, y);
+        }
+    }
+
+    private _drawColHeader(ctx: CanvasRenderingContext2D): void {
+        ctx.font = Math.floor(this.cellWidth * 0.3) + "px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+
+        const charCode1 = "1".charCodeAt(0);
+
+        for (let col = 0; col < this.ncol; ++col) {
+            const text = String.fromCharCode(charCode1 + col);
+            const rect = Geometry.textRectBounding(ctx, text);
+            const x = this.getCellPosition(0, col).x + (this.cellWidth / 2);
+            const y = this.topY - 5;
+            ctx.fillText(text, x, y);
         }
     }
 }
@@ -272,6 +327,11 @@ function opponentTeamID(teamID: TeamID): TeamID {
     return (1 - teamID) as TeamID;
 }
 
+function teamColor(teamID: TeamID): string {
+    if (teamID == TeamID.TEAM_A) return MyColor.teamA_red;
+    if (teamID == TeamID.TEAM_B) return MyColor.teamB_blue;
+    return 'black';
+}
 
 // teamA, teamB 両方の潜水艦を管理する
 class SubmarineManager {
@@ -285,8 +345,11 @@ class SubmarineManager {
     private submarineImageHeight: number;
     private submarineImageWidth: number;
 
-    constructor(gridView: GridView) {
+    showHPEnabled: boolean;
+
+    constructor(gridView: GridView, showHPEnabled: boolean) {
         this.gridView = gridView;
+        this.showHPEnabled = showHPEnabled;
         this.teamASubmarines = new Array<Submarine>();
         this.teamBSubmarines = new Array<Submarine>();
 
@@ -299,7 +362,6 @@ class SubmarineManager {
     // 新しく潜水艦を追加する。
     // 指定マスに既に潜水艦が存在しても追加する。
     newSubmarineAt(pos: CellPos, teamID: TeamID): void {
-        console.log("[newSubmarineAt] pos:", pos, "teamID:", teamID);
         const s = new Submarine(pos.row, pos.col, 3);
         this.getSubmarineArrayOfTeam(teamID).push(s);
     }
@@ -348,6 +410,18 @@ class SubmarineManager {
                 const img = this.getSubmarineImage(teamID);
                 ctx.globalAlpha = submarine.opacity;
                 ctx.drawImage(img, submarine.x, submarine.y, this.submarineImageWidth, this.submarineImageHeight);
+
+                if (!this.showHPEnabled) continue;
+
+                ctx.fillStyle = teamColor(teamID);
+                ctx.font = Math.floor(this.gridView.cellWidth * 0.14) + "px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                const hpText = "♥".repeat(submarine.hp) + "♡".repeat(3 - submarine.hp);
+                const rect = Geometry.textRectBounding(ctx, hpText);
+                ctx.fillText(hpText,
+                    submarine.x + this.submarineImageWidth / 2,
+                    submarine.y - 3);
             }
         }
         ctx.restore();
@@ -419,7 +493,6 @@ class TitleScene implements Scene {
         this.sceneManager = sceneManager;
 
         this.clickHandler = () => {
-            console.log("[TitleScene#clickHandler] Clicked!");
             let nextScene = new InitialPositionInputScene(this.sceneManager);
             this.sceneManager.changeScene(nextScene);
         };
@@ -460,49 +533,139 @@ class InitialPositionInputScene implements Scene {
     sceneManager: SceneManager;
     readonly gridView: GridView;
     readonly cellEventDispatcher: CellEventDispatcher;
-    readonly submarineManager: SubmarineManager;
+    readonly teamASubmarineManager: SubmarineManager;
+    readonly teamBSubmarineManager: SubmarineManager;
 
     currentTeam: TeamID = TeamID.TEAM_A;
     readonly teamASubmarineExistenceGrid: boolean[][];
     readonly teamBSubmarineExistenceGrid: boolean[][];
 
+    readonly canvasWrapper: HTMLElement;
+    readonly teamAShowButton: HTMLButtonElement;
+    readonly teamBShowButton: HTMLButtonElement;
+    readonly battleButton: HTMLButtonElement;
+
     constructor(sceneManager: SceneManager) {
+        this.sceneManager = sceneManager;
+        const canvas = this.sceneManager.canvas;
+
         const cellWidth = 100;
         const cellHeight = 100;
-        this.sceneManager = sceneManager;
         this.gridView = new GridView(N, N, cellWidth, cellHeight);
-        const canvas = this.sceneManager.canvas;
-        this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
-        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height);
 
-        this.submarineManager = new SubmarineManager(this.gridView);
+        this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
+
+        this.teamASubmarineManager = new SubmarineManager(this.gridView, false);
+        this.teamBSubmarineManager = new SubmarineManager(this.gridView, false);
         this.teamASubmarineExistenceGrid = newDim2Array(N, N, false);
         this.teamBSubmarineExistenceGrid = newDim2Array(N, N, false);
 
         this.cellEventDispatcher = new CellEventDispatcher(this.gridView);
+
+        this.canvasWrapper = document.getElementById('canvas-wrapper');
+
+        function createButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
+            const btn = document.createElement('button');
+            btn.classList.add("button", "is-rounded");
+            btn.style.position = 'absolute';
+            btn.innerText = innerText;
+            btn.style.backgroundColor = bgColor;
+            btn.style.color = fgColor;
+            return btn;
+        }
+
+        this.teamAShowButton = createButton('TeamAの配置へ', MyColor.teamA_red, 'white');
+        this.teamBShowButton = createButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
+        this.battleButton = createButton('Start Battle', 'forestgreen', 'white');
+        this.teamAShowButton.style.top = "10px";
+        this.teamAShowButton.style.left = "10px";
+        this.teamBShowButton.style.top = "60px";
+        this.teamBShowButton.style.left = "10px";
+        this.battleButton.style.bottom = "20px";
+        this.battleButton.style.right = "20px";
+
+        this.teamAShowButton.onclick = this._onTeamAShowButtonClicked.bind(this);
+        this.teamBShowButton.onclick = this._onTeamBShowButtonClicked.bind(this);
+        this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
     }
 
     setup(): void {
+        GUIDE_MESSAGE_ELEM.innerText = "初期配置を設定してください。\nセルをクリックして潜水艦の有無を切り替えられます。";
         this._mouseEventSetup();
+
+        this.canvasWrapper.appendChild(this.teamAShowButton);
+        this.canvasWrapper.appendChild(this.teamBShowButton);
+        this.canvasWrapper.appendChild(this.battleButton);
     }
 
     tearDown(): void {
+        GUIDE_MESSAGE_ELEM.innerText = "";
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
+
+        this.canvasWrapper.removeChild(this.teamAShowButton);
+        this.canvasWrapper.removeChild(this.teamBShowButton);
+        this.canvasWrapper.removeChild(this.battleButton);
     }
 
     update(timestamp: number): void {
-        this.submarineManager.update();
+        if (this.currentTeam == TeamID.TEAM_A) {
+            this.teamASubmarineManager.update();
+        } else {
+            this.teamBSubmarineManager.update();
+        }
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
         this._drawBack(ctx);
         this.gridView.draw(ctx);
-        this.submarineManager.draw(ctx);
+        if (this.currentTeam == TeamID.TEAM_A) {
+            this.teamASubmarineManager.draw(ctx);
+        } else {
+            this.teamBSubmarineManager.draw(ctx);
+        }
+        this._drawTitle(ctx);
     }
 
     private _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    private _drawTitle(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+
+        let title: string;
+        let underlineColor: string;
+
+        if (this.currentTeam == TeamID.TEAM_A) {
+            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
+            title = teamName + " の初期配置";
+            underlineColor = MyColor.teamA_red;
+        } else {
+            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
+            title = teamName + " の初期配置";
+            underlineColor = MyColor.teamB_blue;
+        }
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.font = "28px sans-serif";
+        ctx.fillStyle = "#333";
+        const textRect = Geometry.textRectBounding(ctx, title);
+        const textX = CANVAS_WIDTH / 2;
+        const textY = 40;
+        ctx.fillText(title, textX, textY);
+
+        const underlineY = textY + textRect.h + 8;
+        ctx.strokeStyle = underlineColor;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(textX - textRect.w * 0.55, underlineY);
+        ctx.lineTo(textX + textRect.w * 0.55, underlineY);
+        ctx.stroke();
+
+        ctx.restore();
     }
 
     private _mouseEventSetup(): void {
@@ -518,16 +681,16 @@ class InitialPositionInputScene implements Scene {
         const existence = (this.currentTeam == TeamID.TEAM_A
             ? this.teamASubmarineExistenceGrid
             : this.teamBSubmarineExistenceGrid);
-
-        console.log("row:", row, "col:", col, "existence:", existence[row][col]);
-        console.log("existence:", existence);
+        const submarineManager = (this.currentTeam == TeamID.TEAM_A
+            ? this.teamASubmarineManager
+            : this.teamBSubmarineManager);
 
         if (existence[row][col]) {
             existence[row][col] = false;
-            this.submarineManager.deleteSubmarineAt(cell, this.currentTeam);
+            submarineManager.deleteSubmarineAt(cell, this.currentTeam);
         } else {
             existence[row][col] = true;
-            this.submarineManager.newSubmarineAt(cell, this.currentTeam);
+            submarineManager.newSubmarineAt(cell, this.currentTeam);
         }
     }
 
@@ -539,13 +702,49 @@ class InitialPositionInputScene implements Scene {
     private _onMouseLeaveCell(cell: Cell): void {
         cell.becomeDefaultAppearance();
     }
+
+    private _onTeamAShowButtonClicked(): void {
+        this.currentTeam = TeamID.TEAM_A;
+    }
+
+    private _onTeamBShowButtonClicked(): void {
+        this.currentTeam = TeamID.TEAM_B;
+    }
+
+    private _onBattleButtonClicked(): void {
+        try {
+            this._validatePlacement();
+        } catch (e) {
+            GUIDE_MESSAGE_ELEM.style.color = 'red';
+            GUIDE_MESSAGE_ELEM.innerText = e.message;
+            return;
+        }
+        GUIDE_MESSAGE_ELEM.innerText = "";
+        const nextScene = new BattleScene(this.sceneManager,
+            this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A),
+            this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B));
+        this.sceneManager.changeScene(nextScene);
+    }
+
+    private _validatePlacement(): void {
+        if (this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A).length != 4) {
+            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
+            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
+        }
+        if (this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B).length != 4) {
+            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
+            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
+        }
+    }
 }
 
 
 class BattleScene implements Scene {
     sceneManager: SceneManager;
 
-    constructor(sceneManager: SceneManager) {
+    constructor(sceneManager: SceneManager, teamAInitialPlacement: Submarine[], teamBInitialPlacement: Submarine[]) {
+        console.log("[BattleScene constructor] teamA initial placement:", teamAInitialPlacement);
+        console.log("[BattleScene constructor] teamB initial placement:", teamBInitialPlacement);
     }
 
     setup(): void {
