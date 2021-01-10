@@ -16,6 +16,14 @@ abstract class Geometry {
     static centerPos(elementLength: number, containerLength: number): number {
         return (containerLength - elementLength) / 2;
     }
+
+    static textRectBounding(ctx: CanvasRenderingContext2D, text: string): {w: number, h: number} {
+        const rect = ctx.measureText(text);
+        return {
+            w: rect.width,
+            h: rect.actualBoundingBoxAscent + rect.actualBoundingBoxDescent
+        };
+    }
 }
 
 
@@ -224,6 +232,7 @@ class GridView {
 
     draw(ctx: CanvasRenderingContext2D): void {
         this._drawCells(ctx);
+        this._drawHeaders(ctx);
     }
 
     private _drawCells(ctx: CanvasRenderingContext2D): void {
@@ -248,6 +257,47 @@ class GridView {
             const pos = this.getCellPosition(cell.row, cell.col);
             ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
         }
+    }
+
+    private _drawHeaders(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+        ctx.fillStyle = "#333";
+        this._drawRowHeader(ctx);
+        this._drawColHeader(ctx);
+        ctx.restore();
+    }
+
+    private _drawRowHeader(ctx: CanvasRenderingContext2D): void {
+        ctx.font = Math.floor(this.cellHeight * 0.3) + "px monospace";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "top";
+
+        const charCodeA = "A".charCodeAt(0);
+
+        for (let row = 0; row < this.nrow; ++row) {
+            const text = String.fromCharCode(charCodeA + row);
+            const rect = Geometry.textRectBounding(ctx, text);
+            const x = this.leftX - 15;
+            const y = this.getCellPosition(row, 0).y + Geometry.centerPos(rect.h, this.cellHeight);
+            ctx.fillText(text, x, y);
+        }
+    }
+
+    private _drawColHeader(ctx: CanvasRenderingContext2D): void {
+        ctx.font = Math.floor(this.cellWidth * 0.3) + "px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+
+        const charCode1 = "1".charCodeAt(0);
+
+        for (let col = 0; col < this.ncol; ++col) {
+            const text = String.fromCharCode(charCode1 + col);
+            const rect = Geometry.textRectBounding(ctx, text);
+            const x = this.getCellPosition(0, col).x + (this.cellWidth / 2);
+            const y = this.topY - 5;
+            ctx.fillText(text, x, y);
+        }
+
     }
 }
 
