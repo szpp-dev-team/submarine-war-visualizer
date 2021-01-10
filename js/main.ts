@@ -3,6 +3,15 @@ const CANVAS_HEIGHT = 640;
 const N = 5;
 
 
+function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
+    let ret = new Array<Array<T>>(row);
+    for (let i = 0; i < row; ++i) {
+        ret[i] = new Array<T>(col).fill(fillValue);
+    }
+    return ret;
+}
+
+
 abstract class Geometry {
     static centerPos(elementLength: number, containerLength: number): number {
         return (containerLength - elementLength) / 2;
@@ -14,9 +23,10 @@ abstract class MyColor {
     static readonly whiteGray = '#eee';
     static readonly lightGray = '#999';
     static readonly darkGray = '#333';
-    static readonly team1_red = '#CB2400';
-    static readonly team2_blue = '#236CCA'
+    static readonly teamA_red = '#CB2400';
+    static readonly teamB_blue = '#236CCA'
 }
+
 
 interface Scene {
     sceneManager: SceneManager;
@@ -67,7 +77,20 @@ class Visualizer implements SceneManager {
     }
 }
 
-class Cell {
+
+class SceneCommonData {
+    teamAGrid: number[][];
+    teamBGrid: number[][];
+}
+
+
+interface CellPos {
+    row: number;
+    col: number;
+}
+
+
+class Cell implements CellPos {
     static readonly DEFAULT_FILL_COLOR = MyColor.whiteGray;
     static readonly DEFAULT_BORDER_COLOR = MyColor.lightGray;
     static readonly DEFAULT_BORDER_THICKNESS = 2;
@@ -99,6 +122,7 @@ class Cell {
 
 
 class CellEventDispatcher {
+    // クリックされたとき、セルにマウスが入ったとき、セルからマウスが出たときに呼び出されるコールバック関数
     onMouseClickCell: (c: Cell) => void;
     onMouseEnterCell: (c: Cell) => void;
     onMouseLeaveCell: (c: Cell) => void;
@@ -226,6 +250,167 @@ class GridView {
 }
 
 
+class Submarine {
+    y: number;
+    x: number;
+    visible: boolean = true;
+    opacity: number = 1.0;
+    isConstrainedToCell: boolean = true;
+
+    constructor(public row: number, public col: number, public hp: number) {
+    }
+}
+
+
+enum TeamID {
+    TEAM_A,
+    TEAM_B,
+}
+
+
+function opponentTeamID(teamID: TeamID): TeamID {
+    return (1 - teamID) as TeamID;
+}
+
+
+// teamA, teamB 両方の潜水艦を管理する
+class SubmarineManager {
+    private readonly gridView: GridView;
+    private readonly teamASubmarines: Submarine[];
+    private readonly teamBSubmarines: Submarine[];
+
+    private readonly teamASubmarineImage: HTMLImageElement;
+    private readonly teamBSubmarineImage: HTMLImageElement;
+
+    private submarineImageHeight: number;
+    private submarineImageWidth: number;
+
+    constructor(gridView: GridView) {
+        this.gridView = gridView;
+        this.teamASubmarines = new Array<Submarine>();
+        this.teamBSubmarines = new Array<Submarine>();
+
+        this.teamASubmarineImage = new Image();
+        this.teamBSubmarineImage = new Image();
+        this.teamASubmarineImage.src = "assets/submarine-red.png"
+        this.teamBSubmarineImage.src = "assets/submarine-blue.png"
+    }
+
+    // 新しく潜水艦を追加する。
+    // 指定マスに既に潜水艦が存在しても追加する。
+    newSubmarineAt(pos: CellPos, teamID: TeamID): void {
+        console.log("[newSubmarineAt] pos:", pos, "teamID:", teamID);
+        const s = new Submarine(pos.row, pos.col, 3);
+        this.getSubmarineArrayOfTeam(teamID).push(s);
+    }
+
+    // 削除対象の潜水艦が指定位置に無い場合は何もしない。
+    deleteSubmarineAt(pos: CellPos, teamID: TeamID): void {
+        const i = this.indexOfSubmarineAt(pos, teamID);
+        if (i >= 0) {
+            this.getSubmarineArrayOfTeam(teamID).splice(i, 1);
+        }
+    }
+
+    decrementHPAt(pos: CellPos, teamID: TeamID): void {
+        const submarine = this.getSubmarineAt(pos, teamID);
+        if (submarine == null) return;
+        submarine.hp -= 1;
+    }
+
+
+    moveFromTo(from: CellPos, to: CellPos, teamID: TeamID): void {
+        const submarine = this.getSubmarineAt(from, teamID);
+        if (submarine == null) return;
+        submarine.row = to.row;
+        submarine.col = to.col;
+    }
+
+    update(): void {
+        this.submarineImageWidth = this.gridView.cellWidth * 0.60;
+        this.submarineImageHeight = this.gridView.cellHeight * 0.25;
+
+        for (const teamID of [TeamID.TEAM_A, TeamID.TEAM_B]) {
+            const submarineArray = this.getSubmarineArrayOfTeam(teamID);
+            for (let submarine of submarineArray) {
+                const drawnPos = this.calcSubmarineDrawnPos(submarine, teamID);
+                submarine.x = drawnPos.x;
+                submarine.y = drawnPos.y;
+            }
+        }
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+        for (const teamID of [TeamID.TEAM_A, TeamID.TEAM_B]) {
+            const submarineArray = this.getSubmarineArrayOfTeam(teamID);
+            for (let submarine of submarineArray) {
+                const img = this.getSubmarineImage(teamID);
+                ctx.globalAlpha = submarine.opacity;
+                ctx.drawImage(img, submarine.x, submarine.y, this.submarineImageWidth, this.submarineImageHeight);
+            }
+        }
+        ctx.restore();
+    }
+
+    getSubmarineImage(teamID: TeamID): HTMLImageElement {
+        return (teamID == TeamID.TEAM_A ? this.teamASubmarineImage : this.teamBSubmarineImage);
+    }
+
+    calcSubmarineDrawnPos(submarine: Submarine, teamID: TeamID): { x: number, y: number } {
+        if (!submarine.isConstrainedToCell) {
+            return {x: submarine.x, y: submarine.y};
+        }
+
+        const isOpponentAtSameCell = this.getSubmarineAt(submarine, opponentTeamID(teamID)) != null;
+        const w = this.submarineImageWidth;
+        const h = this.submarineImageHeight;
+        const cellPos = this.gridView.getCellPosition(submarine.row, submarine.col);
+
+        if (isOpponentAtSameCell) {
+            const cx = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
+            const cy = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
+            const dx = this.gridView.cellWidth * 0.15;
+            const dy = this.gridView.cellHeight * 0.25;
+            const offsetY = this.gridView.cellHeight * 0.07;
+
+            if (teamID == TeamID.TEAM_A) {
+                return {x: cx - dx, y: cy + dy + offsetY};
+            } else {
+                return {x: cx + dx, y: cy - dy + offsetY};
+            }
+        } else {
+            const x = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
+            const y = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
+            return {x: x, y: y};
+        }
+    }
+
+    getSubmarineArrayOfTeam(teamID: TeamID): Submarine[] {
+        if (teamID == TeamID.TEAM_A) return this.teamASubmarines;
+        if (teamID == TeamID.TEAM_B) return this.teamBSubmarines;
+        return undefined;
+    }
+
+    private getSubmarineAt(pos: CellPos, teamID: TeamID): Submarine | null {
+        const foundIndex = this.indexOfSubmarineAt(pos, teamID);
+        return (foundIndex < 0 ? null : this.getSubmarineArrayOfTeam(teamID)[foundIndex]);
+    }
+
+    // 見つからなかったら負数を返す。
+    private indexOfSubmarineAt(pos: CellPos, teamID: TeamID): number {
+        const submarines = this.getSubmarineArrayOfTeam(teamID);
+        for (let i = 0; i < submarines.length; ++i) {
+            const submarine = submarines[i];
+            if (submarine.row == pos.row && submarine.col == pos.col) {
+                return i;
+            }
+        }
+        return -1;
+    }
+}
+
+
 class TitleScene implements Scene {
     sceneManager: SceneManager;
     private readonly clickHandler: EventListener;
@@ -273,8 +458,13 @@ class TitleScene implements Scene {
 
 class InitialPositionInputScene implements Scene {
     sceneManager: SceneManager;
-    gridView: GridView;
-    cellEventDispatcher: CellEventDispatcher;
+    readonly gridView: GridView;
+    readonly cellEventDispatcher: CellEventDispatcher;
+    readonly submarineManager: SubmarineManager;
+
+    currentTeam: TeamID = TeamID.TEAM_A;
+    readonly teamASubmarineExistenceGrid: boolean[][];
+    readonly teamBSubmarineExistenceGrid: boolean[][];
 
     constructor(sceneManager: SceneManager) {
         const cellWidth = 100;
@@ -284,6 +474,10 @@ class InitialPositionInputScene implements Scene {
         const canvas = this.sceneManager.canvas;
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
         this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height);
+
+        this.submarineManager = new SubmarineManager(this.gridView);
+        this.teamASubmarineExistenceGrid = newDim2Array(N, N, false);
+        this.teamBSubmarineExistenceGrid = newDim2Array(N, N, false);
 
         this.cellEventDispatcher = new CellEventDispatcher(this.gridView);
     }
@@ -297,11 +491,13 @@ class InitialPositionInputScene implements Scene {
     }
 
     update(timestamp: number): void {
+        this.submarineManager.update();
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
         this._drawBack(ctx);
         this.gridView.draw(ctx);
+        this.submarineManager.draw(ctx);
     }
 
     private _drawBack(ctx: CanvasRenderingContext2D): void {
@@ -310,23 +506,38 @@ class InitialPositionInputScene implements Scene {
     }
 
     private _mouseEventSetup(): void {
-        const canvas = this.sceneManager.canvas;
-
-        const onMouseClickCell = (cell: Cell) => {
-            console.log("[Cell Clicked]", cell);
-        };
-        const onMouseEnterCell = (cell: Cell) => {
-            cell.fillColor = '#ffffe9'
-            cell.highlightBorder('#292929');
-        }
-        const onMouseLeaveCell = (cell: Cell) => {
-            cell.becomeDefaultAppearance();
-        }
-
-        this.cellEventDispatcher.onMouseClickCell = onMouseClickCell;
-        this.cellEventDispatcher.onMouseEnterCell = onMouseEnterCell;
-        this.cellEventDispatcher.onMouseLeaveCell = onMouseLeaveCell;
+        this.cellEventDispatcher.onMouseClickCell = this._onMouseClick.bind(this);
+        this.cellEventDispatcher.onMouseEnterCell = this._onMouseEnterCell.bind(this);
+        this.cellEventDispatcher.onMouseLeaveCell = this._onMouseLeaveCell.bind(this);
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
+    }
+
+    private _onMouseClick(cell: Cell): void {
+        const row = cell.row;
+        const col = cell.col;
+        const existence = (this.currentTeam == TeamID.TEAM_A
+            ? this.teamASubmarineExistenceGrid
+            : this.teamBSubmarineExistenceGrid);
+
+        console.log("row:", row, "col:", col, "existence:", existence[row][col]);
+        console.log("existence:", existence);
+
+        if (existence[row][col]) {
+            existence[row][col] = false;
+            this.submarineManager.deleteSubmarineAt(cell, this.currentTeam);
+        } else {
+            existence[row][col] = true;
+            this.submarineManager.newSubmarineAt(cell, this.currentTeam);
+        }
+    }
+
+    private _onMouseEnterCell(cell: Cell): void {
+        cell.fillColor = '#ffffe9'
+        cell.highlightBorder('#292929');
+    }
+
+    private _onMouseLeaveCell(cell: Cell): void {
+        cell.becomeDefaultAppearance();
     }
 }
 
