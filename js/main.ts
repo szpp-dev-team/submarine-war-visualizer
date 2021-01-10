@@ -2,6 +2,9 @@ const CANVAS_WIDTH = 960;
 const CANVAS_HEIGHT = 720;
 const N = 5;
 
+const TEAM_A_NAME_INPUT = document.getElementById('teamA-name');
+const TEAM_B_NAME_INPUT = document.getElementById('teamB-name');
+
 
 function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
     let ret = new Array<Array<T>>(row);
