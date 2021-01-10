@@ -468,12 +468,19 @@ class InitialPositionInputScene implements Scene {
     readonly teamASubmarineExistenceGrid: boolean[][];
     readonly teamBSubmarineExistenceGrid: boolean[][];
 
+    readonly canvasWrapper: HTMLElement;
+    readonly teamAShowButton: HTMLButtonElement;
+    readonly teamBShowButton: HTMLButtonElement;
+    readonly battleButton: HTMLButtonElement;
+
     constructor(sceneManager: SceneManager) {
+        this.sceneManager = sceneManager;
+        const canvas = this.sceneManager.canvas;
+
         const cellWidth = 100;
         const cellHeight = 100;
-        this.sceneManager = sceneManager;
         this.gridView = new GridView(N, N, cellWidth, cellHeight);
-        const canvas = this.sceneManager.canvas;
+
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
         this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height);
 
@@ -482,14 +489,48 @@ class InitialPositionInputScene implements Scene {
         this.teamBSubmarineExistenceGrid = newDim2Array(N, N, false);
 
         this.cellEventDispatcher = new CellEventDispatcher(this.gridView);
+
+        this.canvasWrapper = document.getElementById('canvas-wrapper');
+
+        function createButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
+            const btn = document.createElement('button');
+            btn.classList.add("button", "is-rounded");
+            btn.style.position = 'absolute';
+            btn.innerText = innerText;
+            btn.style.backgroundColor = bgColor;
+            btn.style.color = fgColor;
+            return btn;
+        }
+
+        this.teamAShowButton = createButton('TeamAの配置へ', MyColor.teamA_red, 'white');
+        this.teamBShowButton = createButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
+        this.battleButton = createButton('Start Battle', 'forestgreen', 'white');
+        this.teamAShowButton.style.top = "10px";
+        this.teamAShowButton.style.left = "10px";
+        this.teamBShowButton.style.top = "60px";
+        this.teamBShowButton.style.left = "10px";
+        this.battleButton.style.bottom = "10px";
+        this.battleButton.style.right = "10px";
+        console.log("teamAshowButton: offset:", this.teamAShowButton.offsetLeft, this.teamAShowButton.offsetTop);
+
+        console.log(this.teamAShowButton.style);
+
     }
 
     setup(): void {
         this._mouseEventSetup();
+
+        this.canvasWrapper.appendChild(this.teamAShowButton);
+        this.canvasWrapper.appendChild(this.teamBShowButton);
+        this.canvasWrapper.appendChild(this.battleButton);
     }
 
     tearDown(): void {
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
+
+        this.canvasWrapper.removeChild(this.teamAShowButton);
+        this.canvasWrapper.removeChild(this.teamBShowButton);
+        this.canvasWrapper.removeChild(this.battleButton);
     }
 
     update(timestamp: number): void {
