@@ -728,10 +728,12 @@ class InitialPositionInputScene implements Scene {
 
     private _validatePlacement(): void {
         if (this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A).length != 4) {
-            throw new Error("TeamAの配置が不正です。ちょうど4個配置してください。");
+            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
+            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
         }
         if (this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B).length != 4) {
-            throw new Error("TeamBの配置が不正です。ちょうど4個配置してください。");
+            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
+            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
         }
     }
 }
