@@ -326,6 +326,11 @@ function opponentTeamID(teamID: TeamID): TeamID {
     return (1 - teamID) as TeamID;
 }
 
+function teamColor(teamID: TeamID): string {
+    if (teamID == TeamID.TEAM_A) return MyColor.teamA_red;
+    if (teamID == TeamID.TEAM_B) return MyColor.teamB_blue;
+    return 'black';
+}
 
 // teamA, teamB 両方の潜水艦を管理する
 class SubmarineManager {
@@ -339,8 +344,11 @@ class SubmarineManager {
     private submarineImageHeight: number;
     private submarineImageWidth: number;
 
-    constructor(gridView: GridView) {
+    showHPEnabled: boolean;
+
+    constructor(gridView: GridView, showHPEnabled: boolean) {
         this.gridView = gridView;
+        this.showHPEnabled = showHPEnabled;
         this.teamASubmarines = new Array<Submarine>();
         this.teamBSubmarines = new Array<Submarine>();
 
@@ -402,6 +410,18 @@ class SubmarineManager {
                 const img = this.getSubmarineImage(teamID);
                 ctx.globalAlpha = submarine.opacity;
                 ctx.drawImage(img, submarine.x, submarine.y, this.submarineImageWidth, this.submarineImageHeight);
+
+                if (!this.showHPEnabled) continue;
+
+                ctx.fillStyle = teamColor(teamID);
+                ctx.font = Math.floor(this.gridView.cellWidth * 0.14) + "px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                const hpText = "♥".repeat(submarine.hp) + "♡".repeat(3 - submarine.hp);
+                const rect = Geometry.textRectBounding(ctx, hpText);
+                ctx.fillText(hpText,
+                    submarine.x + this.submarineImageWidth / 2,
+                    submarine.y - 3);
             }
         }
         ctx.restore();
@@ -537,8 +557,8 @@ class InitialPositionInputScene implements Scene {
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
         this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
 
-        this.teamASubmarineManager = new SubmarineManager(this.gridView);
-        this.teamBSubmarineManager = new SubmarineManager(this.gridView);
+        this.teamASubmarineManager = new SubmarineManager(this.gridView, false);
+        this.teamBSubmarineManager = new SubmarineManager(this.gridView, false);
         this.teamASubmarineExistenceGrid = newDim2Array(N, N, false);
         this.teamBSubmarineExistenceGrid = newDim2Array(N, N, false);
 
