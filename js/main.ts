@@ -462,7 +462,8 @@ class InitialPositionInputScene implements Scene {
     sceneManager: SceneManager;
     readonly gridView: GridView;
     readonly cellEventDispatcher: CellEventDispatcher;
-    readonly submarineManager: SubmarineManager;
+    readonly teamASubmarineManager: SubmarineManager;
+    readonly teamBSubmarineManager: SubmarineManager;
 
     currentTeam: TeamID = TeamID.TEAM_A;
     readonly teamASubmarineExistenceGrid: boolean[][];
@@ -484,7 +485,8 @@ class InitialPositionInputScene implements Scene {
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
         this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height);
 
-        this.submarineManager = new SubmarineManager(this.gridView);
+        this.teamASubmarineManager = new SubmarineManager(this.gridView);
+        this.teamBSubmarineManager = new SubmarineManager(this.gridView);
         this.teamASubmarineExistenceGrid = newDim2Array(N, N, false);
         this.teamBSubmarineExistenceGrid = newDim2Array(N, N, false);
 
@@ -511,7 +513,10 @@ class InitialPositionInputScene implements Scene {
         this.teamBShowButton.style.left = "10px";
         this.battleButton.style.bottom = "10px";
         this.battleButton.style.right = "10px";
-        console.log("teamAshowButton: offset:", this.teamAShowButton.offsetLeft, this.teamAShowButton.offsetTop);
+
+        this.teamAShowButton.onclick = this._onTeamAShowButtonClicked.bind(this);
+        this.teamBShowButton.onclick = this._onTeamBShowButtonClicked.bind(this);
+        this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
 
         console.log(this.teamAShowButton.style);
 
@@ -534,13 +539,21 @@ class InitialPositionInputScene implements Scene {
     }
 
     update(timestamp: number): void {
-        this.submarineManager.update();
+        if (this.currentTeam == TeamID.TEAM_A) {
+            this.teamASubmarineManager.update();
+        } else {
+            this.teamBSubmarineManager.update();
+        }
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
         this._drawBack(ctx);
         this.gridView.draw(ctx);
-        this.submarineManager.draw(ctx);
+        if (this.currentTeam == TeamID.TEAM_A) {
+            this.teamASubmarineManager.draw(ctx);
+        } else {
+            this.teamBSubmarineManager.draw(ctx);
+        }
     }
 
     private _drawBack(ctx: CanvasRenderingContext2D): void {
@@ -561,16 +574,16 @@ class InitialPositionInputScene implements Scene {
         const existence = (this.currentTeam == TeamID.TEAM_A
             ? this.teamASubmarineExistenceGrid
             : this.teamBSubmarineExistenceGrid);
-
-        console.log("row:", row, "col:", col, "existence:", existence[row][col]);
-        console.log("existence:", existence);
+        const submarineManager = (this.currentTeam == TeamID.TEAM_A
+            ? this.teamASubmarineManager
+            : this.teamBSubmarineManager);
 
         if (existence[row][col]) {
             existence[row][col] = false;
-            this.submarineManager.deleteSubmarineAt(cell, this.currentTeam);
+            submarineManager.deleteSubmarineAt(cell, this.currentTeam);
         } else {
             existence[row][col] = true;
-            this.submarineManager.newSubmarineAt(cell, this.currentTeam);
+            submarineManager.newSubmarineAt(cell, this.currentTeam);
         }
     }
 
@@ -581,6 +594,18 @@ class InitialPositionInputScene implements Scene {
 
     private _onMouseLeaveCell(cell: Cell): void {
         cell.becomeDefaultAppearance();
+    }
+
+    private _onTeamAShowButtonClicked(): void {
+        this.currentTeam = TeamID.TEAM_A;
+    }
+
+    private _onTeamBShowButtonClicked(): void {
+        this.currentTeam = TeamID.TEAM_B;
+    }
+
+    private _onBattleButtonClicked(): void {
+
     }
 }
 
