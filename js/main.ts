@@ -2,8 +2,8 @@ const CANVAS_WIDTH = 960;
 const CANVAS_HEIGHT = 720;
 const N = 5;
 
-const TEAM_A_NAME_INPUT = document.getElementById('teamA-name');
-const TEAM_B_NAME_INPUT = document.getElementById('teamB-name');
+const TEAM_A_NAME_INPUT = document.getElementById('teamA-name') as HTMLInputElement;
+const TEAM_B_NAME_INPUT = document.getElementById('teamB-name') as HTMLInputElement;
 
 
 function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
@@ -20,7 +20,7 @@ abstract class Geometry {
         return (containerLength - elementLength) / 2;
     }
 
-    static textRectBounding(ctx: CanvasRenderingContext2D, text: string): {w: number, h: number} {
+    static textRectBounding(ctx: CanvasRenderingContext2D, text: string): { w: number, h: number } {
         const rect = ctx.measureText(text);
         return {
             w: rect.width,
@@ -300,7 +300,6 @@ class GridView {
             const y = this.topY - 5;
             ctx.fillText(text, x, y);
         }
-
     }
 }
 
@@ -536,7 +535,7 @@ class InitialPositionInputScene implements Scene {
         this.gridView = new GridView(N, N, cellWidth, cellHeight);
 
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
-        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height);
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
 
         this.teamASubmarineManager = new SubmarineManager(this.gridView);
         this.teamBSubmarineManager = new SubmarineManager(this.gridView);
@@ -607,11 +606,48 @@ class InitialPositionInputScene implements Scene {
         } else {
             this.teamBSubmarineManager.draw(ctx);
         }
+        this._drawTitle(ctx);
     }
 
     private _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    private _drawTitle(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+
+        let title: string;
+        let underlineColor: string;
+
+        if (this.currentTeam == TeamID.TEAM_A) {
+            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
+            title = teamName + " の初期配置";
+            underlineColor = MyColor.teamA_red;
+        } else {
+            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
+            title = teamName + " の初期配置";
+            underlineColor = MyColor.teamB_blue;
+        }
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.font = "28px sans-serif";
+        ctx.fillStyle = "#333";
+        const textRect = Geometry.textRectBounding(ctx, title);
+        const textX = CANVAS_WIDTH / 2;
+        const textY = 40;
+        ctx.fillText(title, textX, textY);
+
+        const underlineY = textY + textRect.h + 8;
+        ctx.strokeStyle = underlineColor;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(textX - textRect.w * 0.8, underlineY);
+        ctx.lineTo(textX + textRect.w * 0.8, underlineY);
+        ctx.stroke();
+
+        ctx.restore();
     }
 
     private _mouseEventSetup(): void {
