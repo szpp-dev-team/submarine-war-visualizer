@@ -362,7 +362,6 @@ class SubmarineManager {
     // 新しく潜水艦を追加する。
     // 指定マスに既に潜水艦が存在しても追加する。
     newSubmarineAt(pos: CellPos, teamID: TeamID): void {
-        console.log("[newSubmarineAt] pos:", pos, "teamID:", teamID);
         const s = new Submarine(pos.row, pos.col, 3);
         this.getSubmarineArrayOfTeam(teamID).push(s);
     }
@@ -494,7 +493,6 @@ class TitleScene implements Scene {
         this.sceneManager = sceneManager;
 
         this.clickHandler = () => {
-            console.log("[TitleScene#clickHandler] Clicked!");
             let nextScene = new InitialPositionInputScene(this.sceneManager);
             this.sceneManager.changeScene(nextScene);
         };
@@ -590,9 +588,6 @@ class InitialPositionInputScene implements Scene {
         this.teamAShowButton.onclick = this._onTeamAShowButtonClicked.bind(this);
         this.teamBShowButton.onclick = this._onTeamBShowButtonClicked.bind(this);
         this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
-
-        console.log(this.teamAShowButton.style);
-
     }
 
     setup(): void {
