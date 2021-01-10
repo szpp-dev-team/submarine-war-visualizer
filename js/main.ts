@@ -135,8 +135,9 @@ class CellEventDispatcher {
 
     hookMeInto(eventSource: HTMLElement): void {
         this.canvasMouseClickHandler = ((evt: MouseEvent) => {
-            const mouseX = evt.clientX - eventSource.offsetLeft;
-            const mouseY = evt.clientY - eventSource.offsetTop;
+            const rect = eventSource.getBoundingClientRect();
+            const mouseX = evt.clientX - rect.left;
+            const mouseY = evt.clientY - rect.top;
             for (let cell of this.gridView.cells) {
                 if (this._doesCellContainsP(cell, mouseX, mouseY)) {
                     this.onMouseClickCell(cell);
@@ -146,8 +147,9 @@ class CellEventDispatcher {
         });
 
         this.canvasMouseMoveHandler = ((evt: MouseEvent) => {
-            const mouseX = evt.clientX - eventSource.offsetLeft;
-            const mouseY = evt.clientY - eventSource.offsetTop;
+            const rect = eventSource.getBoundingClientRect();
+            const mouseX = evt.clientX - rect.left;
+            const mouseY = evt.clientY - rect.top;
 
             let mouseCursor = 'default';
 
