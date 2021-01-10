@@ -661,8 +661,8 @@ class InitialPositionInputScene implements Scene {
         ctx.strokeStyle = underlineColor;
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(textX - textRect.w * 0.8, underlineY);
-        ctx.lineTo(textX + textRect.w * 0.8, underlineY);
+        ctx.moveTo(textX - textRect.w * 0.55, underlineY);
+        ctx.lineTo(textX + textRect.w * 0.55, underlineY);
         ctx.stroke();
 
         ctx.restore();
