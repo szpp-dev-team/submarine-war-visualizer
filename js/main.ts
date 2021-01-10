@@ -564,8 +564,8 @@ class InitialPositionInputScene implements Scene {
         this.teamAShowButton.style.left = "10px";
         this.teamBShowButton.style.top = "60px";
         this.teamBShowButton.style.left = "10px";
-        this.battleButton.style.bottom = "10px";
-        this.battleButton.style.right = "10px";
+        this.battleButton.style.bottom = "20px";
+        this.battleButton.style.right = "20px";
 
         this.teamAShowButton.onclick = this._onTeamAShowButtonClicked.bind(this);
         this.teamBShowButton.onclick = this._onTeamBShowButtonClicked.bind(this);
