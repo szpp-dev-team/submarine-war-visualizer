@@ -17,6 +17,32 @@ function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
 }
 
 
+function drawUnderlinedText(ctx: CanvasRenderingContext2D,
+                   text: string,
+                   centerX: number,
+                   topY: number,
+                   fontSize: number,
+                   underlineColor: string
+): void {
+    ctx.save();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = fontSize + "px sans-serif";
+    ctx.fillStyle = "#333";
+    const textRect = Geometry.textRectBounding(ctx, text);
+    ctx.fillText(text, centerX, topY);
+
+    const underlineY = topY + textRect.h + 8;
+    ctx.strokeStyle = underlineColor;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(centerX - textRect.w * 0.55, underlineY);
+    ctx.lineTo(centerX + textRect.w * 0.55, underlineY);
+
+    ctx.stroke();
+}
+
 abstract class Geometry {
     static centerPos(elementLength: number, containerLength: number): number {
         return (containerLength - elementLength) / 2;
@@ -386,6 +412,12 @@ class SubmarineManager {
         }
     }
 
+    addSubmarines(submarinesPoses: CellPos[], teamID: TeamID): void {
+        for (const pos of submarinesPoses) {
+            this.newSubmarineAt(pos, teamID);
+        }
+    }
+
     decrementHPAt(pos: CellPos, teamID: TeamID): void {
         const submarine = this.getSubmarineAt(pos, teamID);
         if (submarine == null) return;
@@ -643,8 +675,6 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
-        ctx.save();
-
         let title: string;
         let underlineColor: string;
 
@@ -658,24 +688,11 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             underlineColor = MyColor.teamB_blue;
         }
 
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.font = "28px sans-serif";
-        ctx.fillStyle = "#333";
-        const textRect = Geometry.textRectBounding(ctx, title);
-        const textX = CANVAS_WIDTH / 2;
-        const textY = 40;
-        ctx.fillText(title, textX, textY);
-
-        const underlineY = textY + textRect.h + 8;
-        ctx.strokeStyle = underlineColor;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(textX - textRect.w * 0.55, underlineY);
-        ctx.lineTo(textX + textRect.w * 0.55, underlineY);
-        ctx.stroke();
-
-        ctx.restore();
+        drawUnderlinedText(ctx, title,
+            this.sceneManager.canvas.width / 2,
+            40,
+            28,
+            underlineColor);
     }
 
     private _mouseEventSetup(): void {
@@ -729,7 +746,8 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         GUIDE_MESSAGE_ELEM.innerText = "";
         const nextScene = new BattleScene(this.sceneManager,
             this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A),
-            this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B));
+            this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B),
+            TeamID.TEAM_A);
         this.sceneManager.changeScene(nextScene);
     }
 
@@ -746,38 +764,85 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 }
 
 
-class BattleScene implements Scene {
-    sceneManager: SceneManager;
+class BattleScene implements Scene, CellEventHandler {
+    readonly sceneManager: SceneManager;
+    readonly gridView: GridView;
+    readonly submarineManager: SubmarineManager;
+    readonly cellEventDispatcher: CellEventDispatcher;
 
-    constructor(sceneManager: SceneManager, teamAInitialPlacement: Submarine[], teamBInitialPlacement: Submarine[]) {
-        console.log("[BattleScene constructor] teamA initial placement:", teamAInitialPlacement);
-        console.log("[BattleScene constructor] teamB initial placement:", teamBInitialPlacement);
+    currentTurn: TeamID;
+
+    constructor(sceneManager: SceneManager,
+                teamAInitialPlacement: Submarine[],
+                teamBInitialPlacement: Submarine[],
+                firstTurnTeam: TeamID
+    ) {
+        this.sceneManager = sceneManager;
+        this.gridView = new GridView(N, N, 100, 100);
+        this.submarineManager = new SubmarineManager(this.gridView, true);
+        this.currentTurn = firstTurnTeam;
+        this.cellEventDispatcher = new CellEventDispatcher(this.gridView, this);
+
+        const canvas = this.sceneManager.canvas;
+        this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
+
+        this.submarineManager.addSubmarines(teamAInitialPlacement, TeamID.TEAM_A);
+        this.submarineManager.addSubmarines(teamBInitialPlacement, TeamID.TEAM_B);
     }
 
     setup(): void {
+        this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
     }
 
     tearDown(): void {
+        this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
     }
 
     update(timestamp: number): void {
+        this.submarineManager.update();
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        this._draw_back(ctx);
-        this._draw_message(ctx);
+        this._drawBack(ctx);
+        this.gridView.draw(ctx);
+        this.submarineManager.draw(ctx);
+        this._drawTitle(ctx);
     }
 
-    private _draw_message(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.darkGray;
-        ctx.font = '32px sans-serif'
-        const msg = "Battle Scene";
-        ctx.fillText(msg, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-    }
-
-    private _draw_back(ctx: CanvasRenderingContext2D): void {
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    private _drawTitle(ctx: CanvasRenderingContext2D): void {
+        let title: string;
+        let underlineColor: string;
+
+        if (this.currentTurn == TeamID.TEAM_A) {
+            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
+            title = teamName + " のターン";
+            underlineColor = MyColor.teamA_red;
+        } else {
+            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
+            title = teamName + " のターン";
+            underlineColor = MyColor.teamB_blue;
+        }
+
+        drawUnderlinedText(ctx, title,
+            this.sceneManager.canvas.width / 2,
+            40,
+            28,
+            underlineColor);
+    }
+
+    onMouseClickCell(c: Cell): void {
+    }
+
+    onMouseEnterCell(c: Cell): void {
+    }
+
+    onMouseLeaveCell(c: Cell): void {
     }
 }
 
