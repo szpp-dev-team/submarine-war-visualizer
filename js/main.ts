@@ -5,6 +5,7 @@ const N = 5;
 const TEAM_A_NAME_INPUT = document.getElementById('teamA-name') as HTMLInputElement;
 const TEAM_B_NAME_INPUT = document.getElementById('teamB-name') as HTMLInputElement;
 const GUIDE_MESSAGE_ELEM = document.getElementById('guide-message') as HTMLDivElement;
+const CANVAS_WRAPPER_ELEM = document.getElementById('canvas-wrapper') as HTMLElement;
 
 
 function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
@@ -540,7 +541,6 @@ class InitialPositionInputScene implements Scene {
     readonly teamASubmarineExistenceGrid: boolean[][];
     readonly teamBSubmarineExistenceGrid: boolean[][];
 
-    readonly canvasWrapper: HTMLElement;
     readonly teamAShowButton: HTMLButtonElement;
     readonly teamBShowButton: HTMLButtonElement;
     readonly battleButton: HTMLButtonElement;
@@ -563,7 +563,6 @@ class InitialPositionInputScene implements Scene {
 
         this.cellEventDispatcher = new CellEventDispatcher(this.gridView);
 
-        this.canvasWrapper = document.getElementById('canvas-wrapper');
 
         function createButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
             const btn = document.createElement('button');
@@ -594,18 +593,18 @@ class InitialPositionInputScene implements Scene {
         GUIDE_MESSAGE_ELEM.innerText = "初期配置を設定してください。\nセルをクリックして潜水艦の有無を切り替えられます。";
         this._mouseEventSetup();
 
-        this.canvasWrapper.appendChild(this.teamAShowButton);
-        this.canvasWrapper.appendChild(this.teamBShowButton);
-        this.canvasWrapper.appendChild(this.battleButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.teamAShowButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.teamBShowButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.battleButton);
     }
 
     tearDown(): void {
         GUIDE_MESSAGE_ELEM.innerText = "";
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
 
-        this.canvasWrapper.removeChild(this.teamAShowButton);
-        this.canvasWrapper.removeChild(this.teamBShowButton);
-        this.canvasWrapper.removeChild(this.battleButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.teamAShowButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.teamBShowButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.battleButton);
     }
 
     update(timestamp: number): void {
