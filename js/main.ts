@@ -134,16 +134,27 @@ class Cell implements CellPos {
 }
 
 
-class CellEventDispatcher {
+interface CellEventHandler {
     // クリックされたとき、セルにマウスが入ったとき、セルからマウスが出たときに呼び出されるコールバック関数
     onMouseClickCell: (c: Cell) => void;
     onMouseEnterCell: (c: Cell) => void;
     onMouseLeaveCell: (c: Cell) => void;
+}
 
+
+class CellEventDispatcher {
+    private readonly gridView: GridView;
     private canvasMouseClickHandler: EventHandlerNonNull;
     private canvasMouseMoveHandler: EventHandlerNonNull;
+    private readonly onMouseClickCell: (c: Cell) => void;
+    private readonly onMouseEnterCell: (c: Cell) => void;
+    private readonly onMouseLeaveCell: (c: Cell) => void;
 
-    constructor(public gridView: GridView) {
+    constructor(gridView: GridView, cellEventHandler: CellEventHandler) {
+        this.gridView = gridView;
+        this.onMouseClickCell = cellEventHandler.onMouseClickCell.bind(cellEventHandler);
+        this.onMouseEnterCell = cellEventHandler.onMouseEnterCell.bind(cellEventHandler);
+        this.onMouseLeaveCell = cellEventHandler.onMouseLeaveCell.bind(cellEventHandler);
     }
 
     hookMeInto(eventSource: HTMLElement): void {
@@ -530,8 +541,8 @@ class TitleScene implements Scene {
 }
 
 
-class InitialPositionInputScene implements Scene {
-    sceneManager: SceneManager;
+class InitialPositionInputScene implements Scene, CellEventHandler {
+    readonly sceneManager: SceneManager;
     readonly gridView: GridView;
     readonly cellEventDispatcher: CellEventDispatcher;
     readonly teamASubmarineManager: SubmarineManager;
@@ -561,7 +572,7 @@ class InitialPositionInputScene implements Scene {
         this.teamASubmarineExistenceGrid = newDim2Array(N, N, false);
         this.teamBSubmarineExistenceGrid = newDim2Array(N, N, false);
 
-        this.cellEventDispatcher = new CellEventDispatcher(this.gridView);
+        this.cellEventDispatcher = new CellEventDispatcher(this.gridView, this);
 
 
         function createButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
@@ -668,13 +679,10 @@ class InitialPositionInputScene implements Scene {
     }
 
     private _mouseEventSetup(): void {
-        this.cellEventDispatcher.onMouseClickCell = this._onMouseClick.bind(this);
-        this.cellEventDispatcher.onMouseEnterCell = this._onMouseEnterCell.bind(this);
-        this.cellEventDispatcher.onMouseLeaveCell = this._onMouseLeaveCell.bind(this);
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
     }
 
-    private _onMouseClick(cell: Cell): void {
+    onMouseClickCell(cell: Cell): void {
         const row = cell.row;
         const col = cell.col;
         const existence = (this.currentTeam == TeamID.TEAM_A
@@ -693,12 +701,12 @@ class InitialPositionInputScene implements Scene {
         }
     }
 
-    private _onMouseEnterCell(cell: Cell): void {
+    onMouseEnterCell(cell: Cell): void {
         cell.fillColor = '#ffffe9'
         cell.highlightBorder('#292929');
     }
 
-    private _onMouseLeaveCell(cell: Cell): void {
+    onMouseLeaveCell(cell: Cell): void {
         cell.becomeDefaultAppearance();
     }
 
