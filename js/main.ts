@@ -453,6 +453,15 @@ class SubmarineManager {
         submarine.hp -= 1;
     }
 
+    decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID): void {
+        const submarine = this.getSubmarineAt(pos, teamID);
+        if (submarine == null) return;
+        submarine.hp -= 1;
+        if (submarine.hp <= 0) {
+            this.deleteSubmarineAt(pos, teamID);
+        }
+    }
+
 
     moveFromTo(from: CellPos, to: CellPos, teamID: TeamID): void {
         const submarine = this.getSubmarineAt(from, teamID);
