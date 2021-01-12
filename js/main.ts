@@ -477,7 +477,7 @@ class SubmarineManager {
                 const rect = Geometry.textRectBounding(ctx, hpText);
                 ctx.fillText(hpText,
                     submarine.x + this.submarineImageWidth / 2,
-                    submarine.y - 3);
+                    submarine.y);
             }
         }
         ctx.restore();
@@ -500,8 +500,8 @@ class SubmarineManager {
         if (isOpponentAtSameCell) {
             const cx = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
             const cy = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
-            const dx = this.gridView.cellWidth * 0.15;
-            const dy = this.gridView.cellHeight * 0.25;
+            const dx = this.gridView.cellWidth * 0.14;
+            const dy = this.gridView.cellHeight * 0.22;
             const offsetY = this.gridView.cellHeight * 0.07;
 
             if (teamID == TeamID.TEAM_A) {
