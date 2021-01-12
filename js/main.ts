@@ -81,6 +81,9 @@ abstract class MyColor {
     static readonly darkGray = '#333';
     static readonly teamA_red = '#CB2400';
     static readonly teamB_blue = '#236CCA'
+    static readonly clickableGreen = '#c3ffc3';
+    static readonly selectedClickableGreen = '#78ff5f';
+    static readonly moveActorCyan = '#afeeff';
 }
 
 
@@ -305,6 +308,11 @@ class GridView {
         const py = this.topY + this.cellHeight * row;
         const px = this.leftX + this.cellWidth * col;
         return {x: px, y: py};
+    }
+
+    getCellAt(pos: CellPos): Cell {
+        const cell = this.cells.find(c => c.row == pos.row && c.col == pos.col);
+        return cell;
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
@@ -546,6 +554,10 @@ class SubmarineManager {
         if (teamID == TeamID.TEAM_A) return this.teamASubmarines;
         if (teamID == TeamID.TEAM_B) return this.teamBSubmarines;
         return undefined;
+    }
+
+    isExistsAt(pos: CellPos, teamID: TeamID): boolean {
+        return this.indexOfSubmarineAt(pos, teamID) >= 0;
     }
 
     private getSubmarineAt(pos: CellPos, teamID: TeamID): Submarine | null {
@@ -826,8 +838,13 @@ class BattleScene implements Scene, CellEventHandler {
     currentTurnCount: number = 1;
     currentTurn: TeamID;
     currentState: BattleSceneState;
+
     attackDestPos: CellPos;
     attackableCellGrid: boolean[][];
+
+    moveActor: CellPos;
+    moveDest: CellPos;
+    movableCellGrid: boolean[][];
 
     constructor(sceneManager: SceneManager,
                 teamAInitialPlacement: CellPos[],
@@ -946,13 +963,30 @@ class BattleScene implements Scene, CellEventHandler {
                     this.attackDestPos = c;
                     c.borderThickness = 5;
                     c.borderColor = c.mouseHoveredBorderColor = 'darkOrange';
+                    c.fillColor = MyColor.selectedClickableGreen;
 
                     this.applyButton.disabled = false;
                 }
                 break;
             case BattleSceneState.MOVE_ACTOR_SELECT:
+                if (this.submarineManager.isExistsAt(c, this.currentTurn)) {
+                    this.moveActor = c;
+                    this.enterMoveDestSelectState();
+                }
                 break;
             case BattleSceneState.MOVE_DEST_SELECT:
+                if (this.movableCellGrid[c.row][c.col]) {
+                    this.highlightMoveDestCandidateCells();
+                    this.moveDest = c;
+                    c.borderThickness = 5;
+                    c.borderColor = c.mouseHoveredBorderColor = 'darkOrange';
+                    c.fillColor = MyColor.selectedClickableGreen;
+
+                    this.applyButton.disabled = false;
+                } else if (this.submarineManager.isExistsAt(c, this.currentTurn)) {
+                    this.moveActor = c;
+                    this.enterMoveDestSelectState();
+                }
                 break;
         }
     }
@@ -987,16 +1021,19 @@ class BattleScene implements Scene, CellEventHandler {
             }
             case BattleSceneState.MOVE_ACTOR_SELECT:
                 break;
-            case BattleSceneState.MOVE_DEST_SELECT:
+            case BattleSceneState.MOVE_DEST_SELECT:{
+                this.submarineManager.moveFromTo(this.moveActor, this.moveDest, this.currentTurn);
+                this.incrementTurn();
+                this.enterOpTypeSelectState();
                 break;
-
+            }
         }
     }
 
     enterOpTypeSelectState(): void {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
-        this.resetCellColor();
+        this.resetCellsStyle();
         console.log(this.gridView.cells);
     }
 
@@ -1011,12 +1048,14 @@ class BattleScene implements Scene, CellEventHandler {
         this.currentState = BattleSceneState.MOVE_ACTOR_SELECT;
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
+        this.highlightMoveActorCandidateCells();
     }
 
     enterMoveDestSelectState(): void {
         this.currentState = BattleSceneState.MOVE_DEST_SELECT;
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
+        this.highlightMoveDestCandidateCells();
     }
 
     setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
@@ -1027,14 +1066,14 @@ class BattleScene implements Scene, CellEventHandler {
         this.applyButton.style.display = bool2DisplayValue(applyButtonEnabled);
     }
 
-    resetCellColor(): void {
+    resetCellsStyle(): void {
         for (const cell of this.gridView.cells) {
             cell.becomeDefaultAppearance();
         }
     }
 
     highlightAttackableCells(): void {
-        this.resetCellColor();
+        this.resetCellsStyle();
 
         this.attackableCellGrid = BattleScene.calcAttackableCellGrid(
             this.submarineManager.getSubmarineArrayOfTeam(this.currentTurn),
@@ -1043,10 +1082,12 @@ class BattleScene implements Scene, CellEventHandler {
 
         for (const cell of this.gridView.cells) {
             if (this.attackableCellGrid[cell.row][cell.col]) {
-                cell.fillColor = cell.mouseHoveredFillColor = '#c3fcc3';
+                cell.fillColor = MyColor.clickableGreen;
+                cell.mouseHoveredFillColor = MyColor.selectedClickableGreen;
                 cell.mouseCursorStyle = 'pointer';
             } else {
                 cell.mouseCursorStyle = 'not-allowed';
+                cell.mouseHoveredFillColor = 'pink';
             }
         }
     }
@@ -1069,6 +1110,78 @@ class BattleScene implements Scene, CellEventHandler {
             attackableCellGrid[pos.row][pos.col] = false;
         }
         return attackableCellGrid;
+    }
+
+    highlightMoveActorCandidateCells(): void {
+        // 一旦すべてクリック禁止にする
+        this.resetCellsStyle();
+        for (const cell of this.gridView.cells) {
+            cell.mouseCursorStyle = 'not-allowed';
+            cell.mouseHoveredFillColor = 'pink';
+        }
+
+        // 自軍のいるマスのみクリック可能にする
+        for (const submarine of this.submarineManager.getSubmarineArrayOfTeam(this.currentTurn)) {
+            const cell = this.gridView.getCellAt(submarine);
+            cell.mouseCursorStyle = 'pointer';
+            cell.fillColor = MyColor.clickableGreen;
+            cell.mouseHoveredFillColor = MyColor.selectedClickableGreen;
+        }
+    }
+
+    highlightMoveDestCandidateCells(): void {
+        this.movableCellGrid = BattleScene.calcMovableCellGrid(
+            this.moveActor,
+            this.gridView.nrow,
+            this.gridView.ncol,
+            this.submarineManager.getSubmarineArrayOfTeam(this.currentTurn));
+
+        this.resetCellsStyle();
+
+        for (const cell of this.gridView.cells) {
+            if (this.movableCellGrid[cell.row][cell.col]) {
+                cell.fillColor = MyColor.clickableGreen;
+                cell.mouseHoveredFillColor = MyColor.selectedClickableGreen;
+                cell.mouseCursorStyle = 'pointer';
+            } else {
+                cell.mouseHoveredFillColor = 'pink';
+                cell.mouseCursorStyle = 'not-allowed';
+            }
+        }
+
+        // 移動先選択中でも自軍のマスをクリックすれば移動元を変更できる。そのことがわかるよう自軍のいるマスのスタイルを設定。
+        for (const submarine of this.submarineManager.getSubmarineArrayOfTeam(this.currentTurn)) {
+            const cell = this.gridView.getCellAt(submarine);
+            cell.mouseHoveredFillColor = MyColor.moveActorCyan;
+            cell.mouseCursorStyle = 'pointer';
+        }
+
+        {
+            const cell = this.gridView.getCellAt(this.moveActor);
+            cell.fillColor = MyColor.moveActorCyan;
+        }
+    }
+
+    static calcMovableCellGrid(fromPos: CellPos, nrow: number, ncol: number, fellowSubmarinePoses: CellPos[]): boolean[][] {
+        const movableCellGrid = newDim2Array(nrow, ncol, false);
+        const directions = [0, 1, 0, -1];
+
+        for (let i = 0; i < directions.length; ++i) {
+            for (const k of [1, 2]) {
+                const dy = directions[i] * k;
+                const dx = directions[i ^ 1] * k; // i xor 1
+                const row = fromPos.row + dy;
+                const col = fromPos.col + dx;
+                if (row < 0 || row >= nrow || col < 0 || col >= ncol) continue;
+                movableCellGrid[row][col] = true;
+            }
+        }
+
+        for (const pos of fellowSubmarinePoses) {
+            movableCellGrid[pos.row][pos.col] = false;
+        }
+
+        return movableCellGrid;
     }
 }
 
