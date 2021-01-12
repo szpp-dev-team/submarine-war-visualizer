@@ -43,6 +43,18 @@ function drawUnderlinedText(ctx: CanvasRenderingContext2D,
     ctx.stroke();
 }
 
+
+function createBlumaButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.classList.add("button", "is-rounded");
+    btn.style.position = 'absolute';
+    btn.innerText = innerText;
+    btn.style.backgroundColor = bgColor;
+    btn.style.color = fgColor;
+    return btn;
+}
+
+
 abstract class Geometry {
     static centerPos(elementLength: number, containerLength: number): number {
         return (containerLength - elementLength) / 2;
@@ -465,7 +477,7 @@ class SubmarineManager {
                 const rect = Geometry.textRectBounding(ctx, hpText);
                 ctx.fillText(hpText,
                     submarine.x + this.submarineImageWidth / 2,
-                    submarine.y - 3);
+                    submarine.y);
             }
         }
         ctx.restore();
@@ -488,8 +500,8 @@ class SubmarineManager {
         if (isOpponentAtSameCell) {
             const cx = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
             const cy = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
-            const dx = this.gridView.cellWidth * 0.15;
-            const dy = this.gridView.cellHeight * 0.25;
+            const dx = this.gridView.cellWidth * 0.14;
+            const dy = this.gridView.cellHeight * 0.22;
             const offsetY = this.gridView.cellHeight * 0.07;
 
             if (teamID == TeamID.TEAM_A) {
@@ -537,7 +549,23 @@ class TitleScene implements Scene {
         this.sceneManager = sceneManager;
 
         this.clickHandler = () => {
-            let nextScene = new InitialPositionInputScene(this.sceneManager);
+            // let nextScene = new InitialPositionInputScene(this.sceneManager);
+            let nextScene = new BattleScene(
+                this.sceneManager,
+                [
+                    {col: 0, row: 0},
+                    {col: 0, row: 4},
+                    {col: 4, row: 0},
+                    {col: 4, row: 4},
+                ],
+                [
+                    {col: 0, row: 0},
+                    {col: 1, row: 1},
+                    {col: 3, row: 2},
+                    {col: 3, row: 4},
+                ],
+                TeamID.TEAM_B
+            );
             this.sceneManager.changeScene(nextScene);
         };
 
@@ -597,7 +625,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this.gridView = new GridView(N, N, cellWidth, cellHeight);
 
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
-        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 40;
 
         this.teamASubmarineManager = new SubmarineManager(this.gridView, false);
         this.teamBSubmarineManager = new SubmarineManager(this.gridView, false);
@@ -606,20 +634,9 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 
         this.cellEventDispatcher = new CellEventDispatcher(this.gridView, this);
 
-
-        function createButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
-            const btn = document.createElement('button');
-            btn.classList.add("button", "is-rounded");
-            btn.style.position = 'absolute';
-            btn.innerText = innerText;
-            btn.style.backgroundColor = bgColor;
-            btn.style.color = fgColor;
-            return btn;
-        }
-
-        this.teamAShowButton = createButton('TeamAの配置へ', MyColor.teamA_red, 'white');
-        this.teamBShowButton = createButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
-        this.battleButton = createButton('Start Battle', 'forestgreen', 'white');
+        this.teamAShowButton = createBlumaButton('TeamAの配置へ', MyColor.teamA_red, 'white');
+        this.teamBShowButton = createBlumaButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
+        this.battleButton = createBlumaButton('Start Battle', 'forestgreen', 'white');
         this.teamAShowButton.style.top = "10px";
         this.teamAShowButton.style.left = "10px";
         this.teamBShowButton.style.top = "60px";
@@ -770,11 +787,16 @@ class BattleScene implements Scene, CellEventHandler {
     readonly submarineManager: SubmarineManager;
     readonly cellEventDispatcher: CellEventDispatcher;
 
+    readonly attackButton: HTMLButtonElement;
+    readonly moveButton: HTMLButtonElement;
+    readonly goBackButton: HTMLButtonElement;
+    readonly applyButton: HTMLButtonElement;
+
     currentTurn: TeamID;
 
     constructor(sceneManager: SceneManager,
-                teamAInitialPlacement: Submarine[],
-                teamBInitialPlacement: Submarine[],
+                teamAInitialPlacement: CellPos[],
+                teamBInitialPlacement: CellPos[],
                 firstTurnTeam: TeamID
     ) {
         this.sceneManager = sceneManager;
@@ -785,18 +807,50 @@ class BattleScene implements Scene, CellEventHandler {
 
         const canvas = this.sceneManager.canvas;
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
-        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 40;
 
         this.submarineManager.addSubmarines(teamAInitialPlacement, TeamID.TEAM_A);
         this.submarineManager.addSubmarines(teamBInitialPlacement, TeamID.TEAM_B);
+
+        this.attackButton = createBlumaButton("Attack", 'darkOrange', 'white');
+        this.moveButton = createBlumaButton("Move", 'darkOrange', 'white');
+        this.goBackButton = createBlumaButton("◀ Back", 'dimGray', 'white');
+        this.applyButton = createBlumaButton("Apply", 'forestgreen', 'white');
+
+        {
+            const margin = 20;
+            const opButtonWidth = 120;
+            const canvasWidth = this.sceneManager.canvas.width;
+
+            this.attackButton.style.bottom = margin + "px";
+            this.attackButton.style.left = (canvasWidth / 2 - opButtonWidth - 10) + "px";
+            this.attackButton.style.width = opButtonWidth + "px";
+
+            this.moveButton.style.bottom = margin + "px";
+            this.moveButton.style.right = (canvasWidth / 2 - opButtonWidth - 10) + "px";
+            this.moveButton.style.width = opButtonWidth + "px";
+
+            this.goBackButton.style.top = margin + "px";
+            this.goBackButton.style.left = margin + "px";
+            this.applyButton.style.right = margin + "px";
+            this.applyButton.style.bottom = margin + "px";
+        }
     }
 
     setup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
+        CANVAS_WRAPPER_ELEM.appendChild(this.attackButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.moveButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.goBackButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.applyButton);
     }
 
     tearDown(): void {
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
+        CANVAS_WRAPPER_ELEM.removeChild(this.attackButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.moveButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.goBackButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.applyButton);
     }
 
     update(timestamp: number): void {
