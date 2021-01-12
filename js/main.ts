@@ -17,6 +17,11 @@ function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
 }
 
 
+function zeroPadding(value: number, digitLength: number): string {
+    return (Array(digitLength).join('0') + value).slice(-digitLength);
+}
+
+
 function drawUnderlinedText(ctx: CanvasRenderingContext2D,
                    text: string,
                    centerX: number,
@@ -803,6 +808,7 @@ class BattleScene implements Scene, CellEventHandler {
     readonly goBackButton: HTMLButtonElement;
     readonly applyButton: HTMLButtonElement;
 
+    currentTurnCount: number = 1;
     currentTurn: TeamID;
     currentState: BattleSceneState;
 
@@ -888,24 +894,29 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
-        let title: string;
+        let teamName;
         let underlineColor: string;
 
         if (this.currentTurn == TeamID.TEAM_A) {
-            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
-            title = teamName + " のターン";
+            teamName = TEAM_A_NAME_INPUT.value || "TeamA";
             underlineColor = MyColor.teamA_red;
         } else {
-            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
-            title = teamName + " のターン";
+            teamName = TEAM_B_NAME_INPUT.value || "TeamB";
             underlineColor = MyColor.teamB_blue;
         }
+
+        const title = "#" + zeroPadding(this.currentTurnCount, 2) + ":  " + teamName + " のターン";
 
         drawUnderlinedText(ctx, title,
             this.sceneManager.canvas.width / 2,
             40,
             28,
             underlineColor);
+    }
+
+    incrementTurn(): void {
+        this.currentTurnCount += 1;
+        this.currentTurn = opponentTeamID(this.currentTurn);
     }
 
     onMouseClickCell(c: Cell): void {
