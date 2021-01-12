@@ -81,6 +81,9 @@ abstract class MyColor {
     static readonly darkGray = '#333';
     static readonly teamA_red = '#CB2400';
     static readonly teamB_blue = '#236CCA'
+    static readonly clickableGreen = '#c3ffc3';
+    static readonly selectedClickableGreen = '#78ff5f';
+    static readonly moveActorCyan = '#afeeff';
 }
 
 
