@@ -556,6 +556,10 @@ class SubmarineManager {
         return undefined;
     }
 
+    isExistsAt(pos: CellPos, teamID: TeamID): boolean {
+        return this.indexOfSubmarineAt(pos, teamID) >= 0;
+    }
+
     private getSubmarineAt(pos: CellPos, teamID: TeamID): Submarine | null {
         const foundIndex = this.indexOfSubmarineAt(pos, teamID);
         return (foundIndex < 0 ? null : this.getSubmarineArrayOfTeam(teamID)[foundIndex]);
