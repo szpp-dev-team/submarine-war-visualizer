@@ -846,6 +846,11 @@ class BattleScene implements Scene, CellEventHandler {
             this.goBackButton.style.left = margin + "px";
             this.applyButton.style.right = margin + "px";
             this.applyButton.style.bottom = margin + "px";
+
+            this.goBackButton.onclick = this.onGoBackButtonClick.bind(this);
+            this.attackButton.onclick = this.onAttackButtonClick.bind(this);
+            this.moveButton.onclick = this.onMoveButtonClick.bind(this);
+            this.applyButton.onclick = this.onApplyButtonClick.bind(this);
         }
     }
 
@@ -912,6 +917,21 @@ class BattleScene implements Scene, CellEventHandler {
     onMouseLeaveCell(c: Cell): void {
     }
 
+    onAttackButtonClick(): void {
+        this.enterAttackDestSelectState();
+    }
+
+    onMoveButtonClick(): void {
+        this.enterMoveActorSelectState();
+    }
+
+    onGoBackButtonClick(): void {
+        this.enterOpTypeSelectState();
+    }
+
+    onApplyButtonClick(): void {
+    }
+
     enterOpTypeSelectState(): void {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
@@ -920,16 +940,19 @@ class BattleScene implements Scene, CellEventHandler {
     enterAttackDestSelectState(): void {
         this.currentState = BattleSceneState.ATTACK_DEST_SELECT;
         this.setButtonDisplayStyle(true, false, false, true);
+        this.applyButton.disabled = true;
     }
 
     enterMoveActorSelectState(): void {
         this.currentState = BattleSceneState.MOVE_ACTOR_SELECT;
         this.setButtonDisplayStyle(true, false, false, true);
+        this.applyButton.disabled = true;
     }
 
     enterMoveDestSelectState(): void {
         this.currentState = BattleSceneState.MOVE_DEST_SELECT;
         this.setButtonDisplayStyle(true, false, false, true);
+        this.applyButton.disabled = true;
     }
 
     setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
