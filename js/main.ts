@@ -310,6 +310,11 @@ class GridView {
         return {x: px, y: py};
     }
 
+    getCellAt(pos: CellPos): Cell {
+        const cell = this.cells.find(c => c.row == pos.row && c.col == pos.col);
+        return cell;
+    }
+
     draw(ctx: CanvasRenderingContext2D): void {
         this._drawCells(ctx);
         this._drawHeaders(ctx);
