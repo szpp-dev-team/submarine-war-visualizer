@@ -826,6 +826,8 @@ class BattleScene implements Scene, CellEventHandler {
     currentTurnCount: number = 1;
     currentTurn: TeamID;
     currentState: BattleSceneState;
+    attackDestPos: CellPos;
+    attackableCellGrid: boolean[][];
 
     constructor(sceneManager: SceneManager,
                 teamAInitialPlacement: CellPos[],
@@ -935,6 +937,24 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     onMouseClickCell(c: Cell): void {
+        switch (this.currentState) {
+            case BattleSceneState.OP_TYPE_SELECT:
+                break;
+            case BattleSceneState.ATTACK_DEST_SELECT:
+                if (this.attackableCellGrid[c.row][c.col]) {
+                    this.highlightAttackableCells();
+                    this.attackDestPos = c;
+                    c.borderThickness = 5;
+                    c.borderColor = c.mouseHoveredBorderColor = 'darkOrange';
+
+                    this.applyButton.disabled = false;
+                }
+                break;
+            case BattleSceneState.MOVE_ACTOR_SELECT:
+                break;
+            case BattleSceneState.MOVE_DEST_SELECT:
+                break;
+        }
     }
 
     onMouseEnterCell(c: Cell): void {
@@ -956,17 +976,35 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     onApplyButtonClick(): void {
+        switch (this.currentState) {
+            case BattleSceneState.OP_TYPE_SELECT:
+                break;
+            case BattleSceneState.ATTACK_DEST_SELECT: {
+                this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn));
+                this.incrementTurn();
+                this.enterOpTypeSelectState();
+                break;
+            }
+            case BattleSceneState.MOVE_ACTOR_SELECT:
+                break;
+            case BattleSceneState.MOVE_DEST_SELECT:
+                break;
+
+        }
     }
 
     enterOpTypeSelectState(): void {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
+        this.resetCellColor();
+        console.log(this.gridView.cells);
     }
 
     enterAttackDestSelectState(): void {
         this.currentState = BattleSceneState.ATTACK_DEST_SELECT;
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
+        this.highlightAttackableCells();
     }
 
     enterMoveActorSelectState(): void {
@@ -987,6 +1025,50 @@ class BattleScene implements Scene, CellEventHandler {
         this.attackButton.style.display = bool2DisplayValue(attackButtonEnabled);
         this.moveButton.style.display = bool2DisplayValue(moveButtonEnabled);
         this.applyButton.style.display = bool2DisplayValue(applyButtonEnabled);
+    }
+
+    resetCellColor(): void {
+        for (const cell of this.gridView.cells) {
+            cell.becomeDefaultAppearance();
+        }
+    }
+
+    highlightAttackableCells(): void {
+        this.resetCellColor();
+
+        this.attackableCellGrid = BattleScene.calcAttackableCellGrid(
+            this.submarineManager.getSubmarineArrayOfTeam(this.currentTurn),
+            this.gridView.nrow,
+            this.gridView.ncol);
+
+        for (const cell of this.gridView.cells) {
+            if (this.attackableCellGrid[cell.row][cell.col]) {
+                cell.fillColor = cell.mouseHoveredFillColor = '#c3fcc3';
+                cell.mouseCursorStyle = 'pointer';
+            } else {
+                cell.mouseCursorStyle = 'not-allowed';
+            }
+        }
+    }
+
+    static calcAttackableCellGrid(submarinePoses: CellPos[], nrow: number, ncol: number): boolean[][] {
+        const attackableCellGrid = newDim2Array(nrow, ncol, false);
+
+        // 各潜水艦の周囲1マスを true にしておく
+        for (const pos of submarinePoses) {
+            for (let row = pos.row - 1; row <= pos.row + 1; ++row) {
+                for (let col = pos.col - 1; col <= pos.col + 1; ++col) {
+                    if (row < 0 || row >= nrow || col < 0 || col >= ncol) continue;
+                    attackableCellGrid[row][col] = true;
+                }
+            }
+        }
+
+        // 自軍の潜水艦のマスには攻撃できないので除く
+        for (const pos of submarinePoses) {
+            attackableCellGrid[pos.row][pos.col] = false;
+        }
+        return attackableCellGrid;
     }
 }
 
