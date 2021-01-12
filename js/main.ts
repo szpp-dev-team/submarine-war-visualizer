@@ -478,6 +478,14 @@ class SubmarineManager {
         submarine.col = to.col;
     }
 
+    isTeamAWinner(): boolean {
+        return this.teamASubmarines.length > 0 && this.teamBSubmarines.length <= 0;
+    }
+
+    isTeamBWinner(): boolean {
+        return this.teamBSubmarines.length > 0 && this.teamASubmarines.length <= 0;
+    }
+
     update(): void {
         this.submarineImageWidth = this.gridView.cellWidth * 0.60;
         this.submarineImageHeight = this.gridView.cellHeight * 0.25;
@@ -821,6 +829,7 @@ enum BattleSceneState {
     ATTACK_DEST_SELECT,
     MOVE_ACTOR_SELECT,
     MOVE_DEST_SELECT,
+    BATTLE_FINISHED,
 }
 
 
@@ -928,6 +937,22 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
+        if (this.submarineManager.isTeamAWinner()) {
+            drawUnderlinedText(ctx, "勝者: " + (TEAM_A_NAME_INPUT.value || "TeamA"),
+                this.sceneManager.canvas.width / 2,
+                40,
+                28,
+                MyColor.teamA_red);
+            return;
+        } else if (this.submarineManager.isTeamBWinner()) {
+            drawUnderlinedText(ctx, "勝者: " + (TEAM_B_NAME_INPUT.value || "TeamB"),
+                this.sceneManager.canvas.width / 2,
+                40,
+                28,
+                MyColor.teamB_blue);
+            return;
+        }
+
         let teamName;
         let underlineColor: string;
 
@@ -1016,7 +1041,11 @@ class BattleScene implements Scene, CellEventHandler {
             case BattleSceneState.ATTACK_DEST_SELECT: {
                 this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn));
                 this.incrementTurn();
-                this.enterOpTypeSelectState();
+                if (this.submarineManager.isTeamAWinner() || this.submarineManager.isTeamBWinner()) {
+                    this.enterBattleFinishedState();
+                } else {
+                    this.enterOpTypeSelectState();
+                }
                 break;
             }
             case BattleSceneState.MOVE_ACTOR_SELECT:
@@ -1059,6 +1088,21 @@ class BattleScene implements Scene, CellEventHandler {
         this.applyButton.disabled = true;
         this.highlightMoveDestCandidateCells();
         GUIDE_MESSAGE_ELEM.innerText = "移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。";
+    }
+
+    enterBattleFinishedState(): void {
+        this.currentState = BattleSceneState.BATTLE_FINISHED;
+        this.setButtonDisplayStyle(false, false, false, false);
+        this.applyButton.disabled = true;
+        this.resetCellsStyle();
+
+        let winnerTeamName: string;
+        if (this.submarineManager.isTeamAWinner()) {
+            winnerTeamName = (TEAM_A_NAME_INPUT.value || "TeamA");
+        } else {
+            winnerTeamName = (TEAM_B_NAME_INPUT.value || "TeamB");
+        }
+        GUIDE_MESSAGE_ELEM.innerText = "チーム " + winnerTeamName + " の皆さんおめでとうございます🎉🎉🎉";
     }
 
     setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
