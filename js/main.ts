@@ -795,8 +795,8 @@ class BattleScene implements Scene, CellEventHandler {
     currentTurn: TeamID;
 
     constructor(sceneManager: SceneManager,
-                teamAInitialPlacement: Submarine[],
-                teamBInitialPlacement: Submarine[],
+                teamAInitialPlacement: CellPos[],
+                teamBInitialPlacement: CellPos[],
                 firstTurnTeam: TeamID
     ) {
         this.sceneManager = sceneManager;
