@@ -625,7 +625,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this.gridView = new GridView(N, N, cellWidth, cellHeight);
 
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
-        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 40;
 
         this.teamASubmarineManager = new SubmarineManager(this.gridView, false);
         this.teamBSubmarineManager = new SubmarineManager(this.gridView, false);
@@ -807,7 +807,7 @@ class BattleScene implements Scene, CellEventHandler {
 
         const canvas = this.sceneManager.canvas;
         this.gridView.leftX = Geometry.centerPos(this.gridView.gridWidth, canvas.width);
-        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 50;
+        this.gridView.topY = Geometry.centerPos(this.gridView.gridHeight, canvas.height) + 40;
 
         this.submarineManager.addSubmarines(teamAInitialPlacement, TeamID.TEAM_A);
         this.submarineManager.addSubmarines(teamBInitialPlacement, TeamID.TEAM_B);
