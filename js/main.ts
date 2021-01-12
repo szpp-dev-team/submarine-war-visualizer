@@ -17,6 +17,11 @@ function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
 }
 
 
+function zeroPadding(value: number, digitLength: number): string {
+    return (Array(digitLength).join('0') + value).slice(-digitLength);
+}
+
+
 function drawUnderlinedText(ctx: CanvasRenderingContext2D,
                    text: string,
                    centerX: number,
@@ -145,13 +150,18 @@ class Cell implements CellPos {
     static readonly DEFAULT_FILL_COLOR = MyColor.whiteGray;
     static readonly DEFAULT_BORDER_COLOR = MyColor.lightGray;
     static readonly DEFAULT_BORDER_THICKNESS = 2;
+    static readonly DEFAULT_MOUSE_HOVER_FILL_COLOR = '#ffffe9';
+    static readonly DEFAULT_MOUSE_HOVER_BORDER_COLOR = '#292929';
+    static readonly DEFAULT_MOUSE_CURSOR_STYLE = 'pointer;'
 
     isMouseHovering: boolean = false;
     fillColor: string;
     borderColor: string;
     borderThickness: number;
-    isBorderHighlighted: boolean = false;
-    mouseCursorStyle: string = 'pointer';
+    mouseCursorStyle: string = Cell.DEFAULT_MOUSE_CURSOR_STYLE;
+
+    mouseHoveredFillColor: string = Cell.DEFAULT_MOUSE_HOVER_FILL_COLOR;
+    mouseHoveredBorderColor: string = Cell.DEFAULT_MOUSE_HOVER_BORDER_COLOR;
 
     constructor(public readonly row: number, public readonly col: number) {
         this.becomeDefaultAppearance();
@@ -161,13 +171,26 @@ class Cell implements CellPos {
         this.fillColor = Cell.DEFAULT_FILL_COLOR;
         this.borderColor = Cell.DEFAULT_BORDER_COLOR;
         this.borderThickness = Cell.DEFAULT_BORDER_THICKNESS;
-        this.isBorderHighlighted = false;
+        this.mouseHoveredFillColor = Cell.DEFAULT_MOUSE_HOVER_FILL_COLOR;
+        this.mouseHoveredBorderColor = Cell.DEFAULT_MOUSE_HOVER_BORDER_COLOR;
+        this.mouseCursorStyle = Cell.DEFAULT_MOUSE_CURSOR_STYLE;
     }
 
-    highlightBorder(color: string, thickness: number = Cell.DEFAULT_BORDER_THICKNESS): void {
-        this.borderColor = color;
-        this.borderThickness = thickness;
-        this.isBorderHighlighted = true;
+    getCurrentBorderColor(): string {
+        return this.isMouseHovering ? this.mouseHoveredBorderColor : this.borderColor;
+    }
+
+    draw(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+        if (this.isMouseHovering) {
+            ctx.fillStyle = this.mouseHoveredFillColor;
+            ctx.strokeStyle = this.mouseHoveredBorderColor;
+        } else {
+            ctx.fillStyle = this.fillColor;
+            ctx.strokeStyle = this.borderColor;
+        }
+        ctx.lineWidth = this.borderThickness;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
     }
 }
 
@@ -293,23 +316,17 @@ class GridView {
         const borderHighlightedCells: Cell[] = [];
 
         for (let cell of this.cells) {
-            ctx.fillStyle = cell.fillColor;
-            ctx.strokeStyle = cell.borderColor;
-            ctx.lineWidth = cell.borderThickness;
-            const pos = this.getCellPosition(cell.row, cell.col);
-            ctx.fillRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
-            ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
-
-            if (cell.isBorderHighlighted) {
+            if (cell.getCurrentBorderColor() != Cell.DEFAULT_BORDER_COLOR) {
                 borderHighlightedCells.push(cell);
+                continue;
             }
+            const pos = this.getCellPosition(cell.row, cell.col);
+            cell.draw(ctx, pos.x, pos.y, this.cellWidth, this.cellHeight);
         }
 
         for (let cell of borderHighlightedCells) {
-            ctx.strokeStyle = cell.borderColor;
-            ctx.lineWidth = cell.borderThickness;
             const pos = this.getCellPosition(cell.row, cell.col);
-            ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
+            cell.draw(ctx, pos.x, pos.y, this.cellWidth, this.cellHeight);
         }
     }
 
@@ -434,6 +451,15 @@ class SubmarineManager {
         const submarine = this.getSubmarineAt(pos, teamID);
         if (submarine == null) return;
         submarine.hp -= 1;
+    }
+
+    decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID): void {
+        const submarine = this.getSubmarineAt(pos, teamID);
+        if (submarine == null) return;
+        submarine.hp -= 1;
+        if (submarine.hp <= 0) {
+            this.deleteSubmarineAt(pos, teamID);
+        }
     }
 
 
@@ -736,12 +762,9 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     onMouseEnterCell(cell: Cell): void {
-        cell.fillColor = '#ffffe9'
-        cell.highlightBorder('#292929');
     }
 
     onMouseLeaveCell(cell: Cell): void {
-        cell.becomeDefaultAppearance();
     }
 
     private _onTeamAShowButtonClicked(): void {
@@ -781,6 +804,14 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 }
 
 
+enum BattleSceneState {
+    OP_TYPE_SELECT,
+    ATTACK_DEST_SELECT,
+    MOVE_ACTOR_SELECT,
+    MOVE_DEST_SELECT,
+}
+
+
 class BattleScene implements Scene, CellEventHandler {
     readonly sceneManager: SceneManager;
     readonly gridView: GridView;
@@ -792,7 +823,11 @@ class BattleScene implements Scene, CellEventHandler {
     readonly goBackButton: HTMLButtonElement;
     readonly applyButton: HTMLButtonElement;
 
+    currentTurnCount: number = 1;
     currentTurn: TeamID;
+    currentState: BattleSceneState;
+    attackDestPos: CellPos;
+    attackableCellGrid: boolean[][];
 
     constructor(sceneManager: SceneManager,
                 teamAInitialPlacement: CellPos[],
@@ -834,6 +869,11 @@ class BattleScene implements Scene, CellEventHandler {
             this.goBackButton.style.left = margin + "px";
             this.applyButton.style.right = margin + "px";
             this.applyButton.style.bottom = margin + "px";
+
+            this.goBackButton.onclick = this.onGoBackButtonClick.bind(this);
+            this.attackButton.onclick = this.onAttackButtonClick.bind(this);
+            this.moveButton.onclick = this.onMoveButtonClick.bind(this);
+            this.applyButton.onclick = this.onApplyButtonClick.bind(this);
         }
     }
 
@@ -843,6 +883,7 @@ class BattleScene implements Scene, CellEventHandler {
         CANVAS_WRAPPER_ELEM.appendChild(this.moveButton);
         CANVAS_WRAPPER_ELEM.appendChild(this.goBackButton);
         CANVAS_WRAPPER_ELEM.appendChild(this.applyButton);
+        this.enterOpTypeSelectState();
     }
 
     tearDown(): void {
@@ -870,18 +911,18 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
-        let title: string;
+        let teamName;
         let underlineColor: string;
 
         if (this.currentTurn == TeamID.TEAM_A) {
-            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
-            title = teamName + " のターン";
+            teamName = TEAM_A_NAME_INPUT.value || "TeamA";
             underlineColor = MyColor.teamA_red;
         } else {
-            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
-            title = teamName + " のターン";
+            teamName = TEAM_B_NAME_INPUT.value || "TeamB";
             underlineColor = MyColor.teamB_blue;
         }
+
+        const title = "#" + zeroPadding(this.currentTurnCount, 2) + ":  " + teamName + " のターン";
 
         drawUnderlinedText(ctx, title,
             this.sceneManager.canvas.width / 2,
@@ -890,13 +931,144 @@ class BattleScene implements Scene, CellEventHandler {
             underlineColor);
     }
 
+    incrementTurn(): void {
+        this.currentTurnCount += 1;
+        this.currentTurn = opponentTeamID(this.currentTurn);
+    }
+
     onMouseClickCell(c: Cell): void {
+        switch (this.currentState) {
+            case BattleSceneState.OP_TYPE_SELECT:
+                break;
+            case BattleSceneState.ATTACK_DEST_SELECT:
+                if (this.attackableCellGrid[c.row][c.col]) {
+                    this.highlightAttackableCells();
+                    this.attackDestPos = c;
+                    c.borderThickness = 5;
+                    c.borderColor = c.mouseHoveredBorderColor = 'darkOrange';
+
+                    this.applyButton.disabled = false;
+                }
+                break;
+            case BattleSceneState.MOVE_ACTOR_SELECT:
+                break;
+            case BattleSceneState.MOVE_DEST_SELECT:
+                break;
+        }
     }
 
     onMouseEnterCell(c: Cell): void {
     }
 
     onMouseLeaveCell(c: Cell): void {
+    }
+
+    onAttackButtonClick(): void {
+        this.enterAttackDestSelectState();
+    }
+
+    onMoveButtonClick(): void {
+        this.enterMoveActorSelectState();
+    }
+
+    onGoBackButtonClick(): void {
+        this.enterOpTypeSelectState();
+    }
+
+    onApplyButtonClick(): void {
+        switch (this.currentState) {
+            case BattleSceneState.OP_TYPE_SELECT:
+                break;
+            case BattleSceneState.ATTACK_DEST_SELECT: {
+                this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn));
+                this.incrementTurn();
+                this.enterOpTypeSelectState();
+                break;
+            }
+            case BattleSceneState.MOVE_ACTOR_SELECT:
+                break;
+            case BattleSceneState.MOVE_DEST_SELECT:
+                break;
+
+        }
+    }
+
+    enterOpTypeSelectState(): void {
+        this.currentState = BattleSceneState.OP_TYPE_SELECT;
+        this.setButtonDisplayStyle(false, true, true, false);
+        this.resetCellColor();
+        console.log(this.gridView.cells);
+    }
+
+    enterAttackDestSelectState(): void {
+        this.currentState = BattleSceneState.ATTACK_DEST_SELECT;
+        this.setButtonDisplayStyle(true, false, false, true);
+        this.applyButton.disabled = true;
+        this.highlightAttackableCells();
+    }
+
+    enterMoveActorSelectState(): void {
+        this.currentState = BattleSceneState.MOVE_ACTOR_SELECT;
+        this.setButtonDisplayStyle(true, false, false, true);
+        this.applyButton.disabled = true;
+    }
+
+    enterMoveDestSelectState(): void {
+        this.currentState = BattleSceneState.MOVE_DEST_SELECT;
+        this.setButtonDisplayStyle(true, false, false, true);
+        this.applyButton.disabled = true;
+    }
+
+    setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
+        const bool2DisplayValue = (displayEnabled: boolean) => displayEnabled ? "initial" : "none";
+        this.goBackButton.style.display = bool2DisplayValue(goBackButtonEnabled);
+        this.attackButton.style.display = bool2DisplayValue(attackButtonEnabled);
+        this.moveButton.style.display = bool2DisplayValue(moveButtonEnabled);
+        this.applyButton.style.display = bool2DisplayValue(applyButtonEnabled);
+    }
+
+    resetCellColor(): void {
+        for (const cell of this.gridView.cells) {
+            cell.becomeDefaultAppearance();
+        }
+    }
+
+    highlightAttackableCells(): void {
+        this.resetCellColor();
+
+        this.attackableCellGrid = BattleScene.calcAttackableCellGrid(
+            this.submarineManager.getSubmarineArrayOfTeam(this.currentTurn),
+            this.gridView.nrow,
+            this.gridView.ncol);
+
+        for (const cell of this.gridView.cells) {
+            if (this.attackableCellGrid[cell.row][cell.col]) {
+                cell.fillColor = cell.mouseHoveredFillColor = '#c3fcc3';
+                cell.mouseCursorStyle = 'pointer';
+            } else {
+                cell.mouseCursorStyle = 'not-allowed';
+            }
+        }
+    }
+
+    static calcAttackableCellGrid(submarinePoses: CellPos[], nrow: number, ncol: number): boolean[][] {
+        const attackableCellGrid = newDim2Array(nrow, ncol, false);
+
+        // 各潜水艦の周囲1マスを true にしておく
+        for (const pos of submarinePoses) {
+            for (let row = pos.row - 1; row <= pos.row + 1; ++row) {
+                for (let col = pos.col - 1; col <= pos.col + 1; ++col) {
+                    if (row < 0 || row >= nrow || col < 0 || col >= ncol) continue;
+                    attackableCellGrid[row][col] = true;
+                }
+            }
+        }
+
+        // 自軍の潜水艦のマスには攻撃できないので除く
+        for (const pos of submarinePoses) {
+            attackableCellGrid[pos.row][pos.col] = false;
+        }
+        return attackableCellGrid;
     }
 }
 
