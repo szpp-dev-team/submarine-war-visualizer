@@ -781,6 +781,14 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 }
 
 
+enum BattleSceneState {
+    OP_TYPE_SELECT,
+    ATTACK_DEST_SELECT,
+    MOVE_ACTOR_SELECT,
+    MOVE_DEST_SELECT,
+}
+
+
 class BattleScene implements Scene, CellEventHandler {
     readonly sceneManager: SceneManager;
     readonly gridView: GridView;
@@ -793,6 +801,7 @@ class BattleScene implements Scene, CellEventHandler {
     readonly applyButton: HTMLButtonElement;
 
     currentTurn: TeamID;
+    currentState: BattleSceneState;
 
     constructor(sceneManager: SceneManager,
                 teamAInitialPlacement: CellPos[],
@@ -843,6 +852,7 @@ class BattleScene implements Scene, CellEventHandler {
         CANVAS_WRAPPER_ELEM.appendChild(this.moveButton);
         CANVAS_WRAPPER_ELEM.appendChild(this.goBackButton);
         CANVAS_WRAPPER_ELEM.appendChild(this.applyButton);
+        this.enterOpTypeSelectState();
     }
 
     tearDown(): void {
@@ -897,6 +907,34 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     onMouseLeaveCell(c: Cell): void {
+    }
+
+    enterOpTypeSelectState(): void {
+        this.currentState = BattleSceneState.OP_TYPE_SELECT;
+        this.setButtonDisplayStyle(false, true, true, false);
+    }
+
+    enterAttackDestSelectState(): void {
+        this.currentState = BattleSceneState.ATTACK_DEST_SELECT;
+        this.setButtonDisplayStyle(true, false, false, true);
+    }
+
+    enterMoveActorSelectState(): void {
+        this.currentState = BattleSceneState.MOVE_ACTOR_SELECT;
+        this.setButtonDisplayStyle(true, false, false, true);
+    }
+
+    enterMoveDestSelectState(): void {
+        this.currentState = BattleSceneState.MOVE_DEST_SELECT;
+        this.setButtonDisplayStyle(true, false, false, true);
+    }
+
+    setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
+        const bool2DisplayValue = (displayEnabled: boolean) => displayEnabled ? "initial" : "none";
+        this.goBackButton.style.display = bool2DisplayValue(goBackButtonEnabled);
+        this.attackButton.style.display = bool2DisplayValue(attackButtonEnabled);
+        this.moveButton.style.display = bool2DisplayValue(moveButtonEnabled);
+        this.applyButton.style.display = bool2DisplayValue(applyButtonEnabled);
     }
 }
 
