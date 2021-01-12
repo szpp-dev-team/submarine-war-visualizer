@@ -1034,7 +1034,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
         this.resetCellsStyle();
-        console.log(this.gridView.cells);
+        GUIDE_MESSAGE_ELEM.innerText = "攻撃または移動のどちらかのボタンを押してください。";
     }
 
     enterAttackDestSelectState(): void {
@@ -1042,6 +1042,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightAttackableCells();
+        GUIDE_MESSAGE_ELEM.innerText = "攻撃先のマスをクリックして Apply ボタンを押してください。";
     }
 
     enterMoveActorSelectState(): void {
@@ -1049,6 +1050,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightMoveActorCandidateCells();
+        GUIDE_MESSAGE_ELEM.innerText = "移動する潜水艦をクリックしてください。";
     }
 
     enterMoveDestSelectState(): void {
@@ -1056,6 +1058,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightMoveDestCandidateCells();
+        GUIDE_MESSAGE_ELEM.innerText = "移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。";
     }
 
     setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
