@@ -150,8 +150,10 @@ class Cell implements CellPos {
     fillColor: string;
     borderColor: string;
     borderThickness: number;
-    isBorderHighlighted: boolean = false;
     mouseCursorStyle: string = 'pointer';
+
+    mouseHoveredFillColor: string = '#ffffe9';
+    mouseHoveredBorderColor: string = '#292929';
 
     constructor(public readonly row: number, public readonly col: number) {
         this.becomeDefaultAppearance();
@@ -161,13 +163,23 @@ class Cell implements CellPos {
         this.fillColor = Cell.DEFAULT_FILL_COLOR;
         this.borderColor = Cell.DEFAULT_BORDER_COLOR;
         this.borderThickness = Cell.DEFAULT_BORDER_THICKNESS;
-        this.isBorderHighlighted = false;
     }
 
-    highlightBorder(color: string, thickness: number = Cell.DEFAULT_BORDER_THICKNESS): void {
-        this.borderColor = color;
-        this.borderThickness = thickness;
-        this.isBorderHighlighted = true;
+    getCurrentBorderColor(): string {
+        return this.isMouseHovering ? this.mouseHoveredBorderColor : this.borderColor;
+    }
+
+    draw(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+        if (this.isMouseHovering) {
+            ctx.fillStyle = this.mouseHoveredFillColor;
+            ctx.strokeStyle = this.mouseHoveredBorderColor;
+        } else {
+            ctx.fillStyle = this.fillColor;
+            ctx.strokeStyle = this.borderColor;
+        }
+        ctx.lineWidth = this.borderThickness;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
     }
 }
 
@@ -293,23 +305,17 @@ class GridView {
         const borderHighlightedCells: Cell[] = [];
 
         for (let cell of this.cells) {
-            ctx.fillStyle = cell.fillColor;
-            ctx.strokeStyle = cell.borderColor;
-            ctx.lineWidth = cell.borderThickness;
-            const pos = this.getCellPosition(cell.row, cell.col);
-            ctx.fillRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
-            ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
-
-            if (cell.isBorderHighlighted) {
+            if (cell.getCurrentBorderColor() != Cell.DEFAULT_BORDER_COLOR) {
                 borderHighlightedCells.push(cell);
+                continue;
             }
+            const pos = this.getCellPosition(cell.row, cell.col);
+            cell.draw(ctx, pos.x, pos.y, this.cellWidth, this.cellHeight);
         }
 
         for (let cell of borderHighlightedCells) {
-            ctx.strokeStyle = cell.borderColor;
-            ctx.lineWidth = cell.borderThickness;
             const pos = this.getCellPosition(cell.row, cell.col);
-            ctx.strokeRect(pos.x, pos.y, this.cellWidth, this.cellHeight);
+            cell.draw(ctx, pos.x, pos.y, this.cellWidth, this.cellHeight);
         }
     }
 
@@ -736,12 +742,9 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     onMouseEnterCell(cell: Cell): void {
-        cell.fillColor = '#ffffe9'
-        cell.highlightBorder('#292929');
     }
 
     onMouseLeaveCell(cell: Cell): void {
-        cell.becomeDefaultAppearance();
     }
 
     private _onTeamAShowButtonClicked(): void {
