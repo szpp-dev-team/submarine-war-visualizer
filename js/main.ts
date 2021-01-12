@@ -150,15 +150,18 @@ class Cell implements CellPos {
     static readonly DEFAULT_FILL_COLOR = MyColor.whiteGray;
     static readonly DEFAULT_BORDER_COLOR = MyColor.lightGray;
     static readonly DEFAULT_BORDER_THICKNESS = 2;
+    static readonly DEFAULT_MOUSE_HOVER_FILL_COLOR = '#ffffe9';
+    static readonly DEFAULT_MOUSE_HOVER_BORDER_COLOR = '#292929';
+    static readonly DEFAULT_MOUSE_CURSOR_STYLE = 'pointer;'
 
     isMouseHovering: boolean = false;
     fillColor: string;
     borderColor: string;
     borderThickness: number;
-    mouseCursorStyle: string = 'pointer';
+    mouseCursorStyle: string = Cell.DEFAULT_MOUSE_CURSOR_STYLE;
 
-    mouseHoveredFillColor: string = '#ffffe9';
-    mouseHoveredBorderColor: string = '#292929';
+    mouseHoveredFillColor: string = Cell.DEFAULT_MOUSE_HOVER_FILL_COLOR;
+    mouseHoveredBorderColor: string = Cell.DEFAULT_MOUSE_HOVER_BORDER_COLOR;
 
     constructor(public readonly row: number, public readonly col: number) {
         this.becomeDefaultAppearance();
@@ -168,6 +171,9 @@ class Cell implements CellPos {
         this.fillColor = Cell.DEFAULT_FILL_COLOR;
         this.borderColor = Cell.DEFAULT_BORDER_COLOR;
         this.borderThickness = Cell.DEFAULT_BORDER_THICKNESS;
+        this.mouseHoveredFillColor = Cell.DEFAULT_MOUSE_HOVER_FILL_COLOR;
+        this.mouseHoveredBorderColor = Cell.DEFAULT_MOUSE_HOVER_BORDER_COLOR;
+        this.mouseCursorStyle = Cell.DEFAULT_MOUSE_CURSOR_STYLE;
     }
 
     getCurrentBorderColor(): string {
