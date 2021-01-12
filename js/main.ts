@@ -549,7 +549,23 @@ class TitleScene implements Scene {
         this.sceneManager = sceneManager;
 
         this.clickHandler = () => {
-            let nextScene = new InitialPositionInputScene(this.sceneManager);
+            // let nextScene = new InitialPositionInputScene(this.sceneManager);
+            let nextScene = new BattleScene(
+                this.sceneManager,
+                [
+                    {col: 0, row: 0},
+                    {col: 0, row: 4},
+                    {col: 4, row: 0},
+                    {col: 4, row: 4},
+                ],
+                [
+                    {col: 0, row: 0},
+                    {col: 1, row: 1},
+                    {col: 3, row: 2},
+                    {col: 3, row: 4},
+                ],
+                TeamID.TEAM_B
+            );
             this.sceneManager.changeScene(nextScene);
         };
 
