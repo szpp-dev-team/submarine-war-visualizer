@@ -43,6 +43,18 @@ function drawUnderlinedText(ctx: CanvasRenderingContext2D,
     ctx.stroke();
 }
 
+
+function createBlumaButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.classList.add("button", "is-rounded");
+    btn.style.position = 'absolute';
+    btn.innerText = innerText;
+    btn.style.backgroundColor = bgColor;
+    btn.style.color = fgColor;
+    return btn;
+}
+
+
 abstract class Geometry {
     static centerPos(elementLength: number, containerLength: number): number {
         return (containerLength - elementLength) / 2;
@@ -606,20 +618,9 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 
         this.cellEventDispatcher = new CellEventDispatcher(this.gridView, this);
 
-
-        function createButton(innerText: string, bgColor: string, fgColor: string): HTMLButtonElement {
-            const btn = document.createElement('button');
-            btn.classList.add("button", "is-rounded");
-            btn.style.position = 'absolute';
-            btn.innerText = innerText;
-            btn.style.backgroundColor = bgColor;
-            btn.style.color = fgColor;
-            return btn;
-        }
-
-        this.teamAShowButton = createButton('TeamAの配置へ', MyColor.teamA_red, 'white');
-        this.teamBShowButton = createButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
-        this.battleButton = createButton('Start Battle', 'forestgreen', 'white');
+        this.teamAShowButton = createBlumaButton('TeamAの配置へ', MyColor.teamA_red, 'white');
+        this.teamBShowButton = createBlumaButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
+        this.battleButton = createBlumaButton('Start Battle', 'forestgreen', 'white');
         this.teamAShowButton.style.top = "10px";
         this.teamAShowButton.style.left = "10px";
         this.teamBShowButton.style.top = "60px";
@@ -770,6 +771,11 @@ class BattleScene implements Scene, CellEventHandler {
     readonly submarineManager: SubmarineManager;
     readonly cellEventDispatcher: CellEventDispatcher;
 
+    readonly attackButton: HTMLButtonElement;
+    readonly moveButton: HTMLButtonElement;
+    readonly goBackButton: HTMLButtonElement;
+    readonly applyButton: HTMLButtonElement;
+
     currentTurn: TeamID;
 
     constructor(sceneManager: SceneManager,
@@ -789,14 +795,46 @@ class BattleScene implements Scene, CellEventHandler {
 
         this.submarineManager.addSubmarines(teamAInitialPlacement, TeamID.TEAM_A);
         this.submarineManager.addSubmarines(teamBInitialPlacement, TeamID.TEAM_B);
+
+        this.attackButton = createBlumaButton("Attack", 'darkOrange', 'white');
+        this.moveButton = createBlumaButton("Move", 'darkOrange', 'white');
+        this.goBackButton = createBlumaButton("◀ Back", 'dimGray', 'white');
+        this.applyButton = createBlumaButton("Apply", 'forestgreen', 'white');
+
+        {
+            const margin = 20;
+            const opButtonWidth = 120;
+            const canvasWidth = this.sceneManager.canvas.width;
+
+            this.attackButton.style.bottom = margin + "px";
+            this.attackButton.style.left = (canvasWidth / 2 - opButtonWidth - 10) + "px";
+            this.attackButton.style.width = opButtonWidth + "px";
+
+            this.moveButton.style.bottom = margin + "px";
+            this.moveButton.style.right = (canvasWidth / 2 - opButtonWidth - 10) + "px";
+            this.moveButton.style.width = opButtonWidth + "px";
+
+            this.goBackButton.style.top = margin + "px";
+            this.goBackButton.style.left = margin + "px";
+            this.applyButton.style.right = margin + "px";
+            this.applyButton.style.bottom = margin + "px";
+        }
     }
 
     setup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
+        CANVAS_WRAPPER_ELEM.appendChild(this.attackButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.moveButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.goBackButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.applyButton);
     }
 
     tearDown(): void {
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
+        CANVAS_WRAPPER_ELEM.removeChild(this.attackButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.moveButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.goBackButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.applyButton);
     }
 
     update(timestamp: number): void {
