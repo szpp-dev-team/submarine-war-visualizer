@@ -996,7 +996,7 @@ class BattleScene implements Scene, CellEventHandler {
     enterOpTypeSelectState(): void {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
-        this.resetCellColor();
+        this.resetCellsColor();
         console.log(this.gridView.cells);
     }
 
@@ -1027,14 +1027,14 @@ class BattleScene implements Scene, CellEventHandler {
         this.applyButton.style.display = bool2DisplayValue(applyButtonEnabled);
     }
 
-    resetCellColor(): void {
+    resetCellsColor(): void {
         for (const cell of this.gridView.cells) {
             cell.becomeDefaultAppearance();
         }
     }
 
     highlightAttackableCells(): void {
-        this.resetCellColor();
+        this.resetCellsColor();
 
         this.attackableCellGrid = BattleScene.calcAttackableCellGrid(
             this.submarineManager.getSubmarineArrayOfTeam(this.currentTurn),
