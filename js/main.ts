@@ -164,6 +164,83 @@ class TimeRatioAnimation extends MyAnimation {
 }
 
 
+class SpriteSheetAnimation extends MyAnimation {
+
+    readonly frameWidth: number;
+    readonly frameHeight: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    private _currentFrameIndex: number;
+
+    constructor(
+        public readonly spriteSheet: HTMLImageElement,
+        public readonly nrow: number,
+        public readonly ncol: number,
+        public readonly duration: number,
+        delay: number,
+        onAnimFinished: () => void,
+    ) {
+        super(delay, onAnimFinished);
+        this.frameHeight = (spriteSheet.height / nrow) | 0;
+        this.frameWidth = (spriteSheet.width / ncol) | 0;
+        this._currentFrameIndex = -1;
+    }
+
+    get allFrameCount(): number {
+        return this.nrow * this.ncol;
+    }
+
+    hasAnimFinished(): boolean {
+        return this._currentFrameIndex >= this.allFrameCount;
+    }
+
+    handle(elapsedTimeMilli: number) {
+        this._currentFrameIndex = (elapsedTimeMilli / this.duration) | 0;
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        if (this.hasAnimFinished()) return;
+
+        const row = (this._currentFrameIndex / this.ncol) | 0;
+        const col = (this._currentFrameIndex % this.ncol);
+        const sx = this.frameWidth * col;
+        const sy = this.frameHeight * row;
+        ctx.drawImage(this.spriteSheet, sx, sy, this.frameWidth, this.frameHeight, this.x, this.y, this.w, this.h);
+    }
+}
+
+
+class BlinkAnimation extends MyAnimation {
+    private _hasAnimFinished: boolean;
+
+    constructor(
+        readonly obj: { visible: boolean },
+        readonly timeLength: number,
+        readonly duration: number,
+        delay: number,
+        onAnimFinish: () => void
+    ) {
+        super(delay, onAnimFinish);
+        this._hasAnimFinished = false;
+    }
+
+    handle(elapsedTimeMilli: number): void {
+        if (elapsedTimeMilli > this.timeLength) {
+            this._hasAnimFinished = true;
+            return;
+        }
+        const n = (elapsedTimeMilli / this.duration) | 0;
+        this.obj.visible = !!(n & 1);
+    }
+
+    hasAnimFinished(): boolean {
+        return this._hasAnimFinished;
+    }
+}
+
+
 abstract class AnimationExecutor {
     private static _animationList: MyAnimation[] = [];
 
