@@ -1002,6 +1002,11 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         CANVAS_WRAPPER_ELEM.appendChild(this.battleButton);
         CANVAS_WRAPPER_ELEM.appendChild(this.teamAFirstTurnLabel);
         CANVAS_WRAPPER_ELEM.appendChild(this.teamBFirstTurnLabel);
+
+        window.addEventListener('beforeunload', (evt) => {
+            evt.preventDefault();
+            evt.returnValue = "";
+        })
     }
 
     tearDown(): void {
