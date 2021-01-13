@@ -95,6 +95,99 @@ abstract class MyColor {
 }
 
 
+interface MyAnimation {
+    update: (timestamp: number) => void;
+    hasAnimFinished: () => boolean;
+    onAnimFinish: () => void;
+}
+
+
+class TimeRatioAnimation implements MyAnimation {
+    readonly lengthTime: number;
+    readonly delay: number;
+    readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
+    readonly onAnimFinish: () => void;
+
+    private _timestampAtRegistered = -1;
+    private _timestampAtAnimStarted = -1;
+    private _hasAnimFinished = false;
+
+    // 時間の単位は全てミリ秒
+    constructor(lengthTime: number, delay: number, task: (ratio: number) => boolean, onAnimFinish: () => void) {
+        this.lengthTime = lengthTime;
+        this.delay = delay;
+        this.task = task;
+        this.onAnimFinish = onAnimFinish;
+    }
+
+    hasAnimFinished(): boolean {
+        return this._hasAnimFinished;
+    }
+
+    start(): void {
+        AnimationExecutor.registerAnimation(this);
+    }
+
+    update(timestamp: number): void {
+
+        if (this.hasAnimFinished()) {
+            return;
+        }
+
+        if (this._timestampAtRegistered == -1) {
+            this._timestampAtRegistered = timestamp;
+        }
+        const elapsedTimeFromRegistered = timestamp - this._timestampAtRegistered;
+        if (elapsedTimeFromRegistered < this.delay) {
+            return;
+        }
+
+        if (this._timestampAtAnimStarted == -1) {
+            this._timestampAtAnimStarted = timestamp;
+        }
+        const elapsedTimeFromAnimStarted = timestamp - this._timestampAtAnimStarted;
+        if (elapsedTimeFromAnimStarted > this.lengthTime) {
+            this._hasAnimFinished = true;
+            return;
+        }
+
+        const ratio = elapsedTimeFromAnimStarted / this.lengthTime;
+        const isContinue = this.task(ratio);
+        this._hasAnimFinished ||= !isContinue;
+    }
+}
+
+
+class AnimationExecutor {
+    private static _animationList: MyAnimation[] = [];
+
+    private constructor() {
+    }
+
+    static registerAnimation(anim: MyAnimation): void {
+        anim.update = anim.update.bind(anim);
+        anim.hasAnimFinished = anim.hasAnimFinished.bind(anim);
+        this._animationList.push(anim);
+    }
+
+    static update(timestamp: number): void {
+        let i = 0;
+
+        while (i < this._animationList.length) {
+            const anim = this._animationList[i];
+            anim.update(timestamp);
+
+            if (anim.hasAnimFinished()) {
+                anim.onAnimFinish();
+                this._animationList.splice(i, 1);
+            } else {
+                ++i;
+            }
+        }
+    }
+}
+
+
 interface Scene {
     sceneManager: SceneManager;
     setup: () => void;
@@ -129,6 +222,7 @@ class Visualizer implements SceneManager {
         this.curScene = firstScene;
         this.curScene.setup();
         const animationLoop = (timestamp: number): void => {
+            AnimationExecutor.update(timestamp);
             this.curScene.update(timestamp);
             this.ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             this.curScene.draw(this.ctx);
