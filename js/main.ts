@@ -245,6 +245,11 @@ interface CellPos {
 }
 
 
+function isSameCellPos(p1: CellPos, p2: CellPos): boolean {
+    return p1.row == p2.row && p1.col == p2.col;
+}
+
+
 class Cell implements CellPos {
     static readonly DEFAULT_FILL_COLOR = MyColor.whiteGray;
     static readonly DEFAULT_BORDER_COLOR = MyColor.lightGray;
