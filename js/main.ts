@@ -84,6 +84,7 @@ abstract class Easing {
 
 
 abstract class MyColor {
+    static readonly backGround = '#f9f9f9';
     static readonly whiteGray = '#eee';
     static readonly lightGray = '#999';
     static readonly darkGray = '#333';
@@ -896,7 +897,7 @@ class TitleScene implements Scene {
     }
 
     private _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillStyle = MyColor.backGround;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 }
@@ -988,7 +989,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillStyle = MyColor.backGround;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
@@ -1245,7 +1246,7 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillStyle = MyColor.backGround;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
