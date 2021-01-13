@@ -336,7 +336,7 @@ class Cell implements CellPos {
     static readonly DEFAULT_BORDER_THICKNESS = 2;
     static readonly DEFAULT_MOUSE_HOVER_FILL_COLOR = '#ffffe9';
     static readonly DEFAULT_MOUSE_HOVER_BORDER_COLOR = '#292929';
-    static readonly DEFAULT_MOUSE_CURSOR_STYLE = 'pointer;'
+    static readonly DEFAULT_MOUSE_CURSOR_STYLE = 'pointer';
 
     isMouseHovering: boolean = false;
     fillColor: string;
@@ -1415,6 +1415,7 @@ class BattleScene implements Scene, CellEventHandler {
     resetCellsStyle(): void {
         for (const cell of this.gridView.cells) {
             cell.becomeDefaultAppearance();
+            cell.mouseCursorStyle = 'default';
         }
     }
 
