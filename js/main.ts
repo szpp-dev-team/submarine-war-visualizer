@@ -95,41 +95,24 @@ abstract class MyColor {
 }
 
 
-interface MyAnimation {
-    update: (timestamp: number) => void;
-    hasAnimFinished: () => boolean;
-    onAnimFinish: () => void;
-}
-
-
-class TimeRatioAnimation implements MyAnimation {
-    readonly lengthTime: number;
-    readonly delay: number;
-    readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
-    readonly onAnimFinish: () => void;
-
+abstract class MyAnimation {
     private _timestampAtRegistered = -1;
     private _timestampAtAnimStarted = -1;
-    private _hasAnimFinished = false;
 
-    // 時間の単位は全てミリ秒
-    constructor(lengthTime: number, delay: number, task: (ratio: number) => boolean, onAnimFinish: () => void) {
-        this.lengthTime = lengthTime;
-        this.delay = delay;
-        this.task = task;
-        this.onAnimFinish = onAnimFinish;
+    protected constructor(
+        readonly delay: number,
+        readonly onAnimFinish: () => void) {
     }
 
-    hasAnimFinished(): boolean {
-        return this._hasAnimFinished;
-    }
+    abstract hasAnimFinished(): boolean;
+
+    abstract handle(elapsedTimeMilli: number): void;
 
     start(): void {
         AnimationExecutor.registerAnimation(this);
     }
 
     update(timestamp: number): void {
-
         if (this.hasAnimFinished()) {
             return;
         }
@@ -146,14 +129,114 @@ class TimeRatioAnimation implements MyAnimation {
             this._timestampAtAnimStarted = timestamp;
         }
         const elapsedTimeFromAnimStarted = timestamp - this._timestampAtAnimStarted;
-        if (elapsedTimeFromAnimStarted > this.lengthTime) {
+        this.handle(elapsedTimeFromAnimStarted);
+    }
+}
+
+
+class TimeRatioAnimation extends MyAnimation {
+    readonly lengthTime: number;
+    readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
+
+    private _hasAnimFinished = false;
+
+    // 時間の単位は全てミリ秒
+    constructor(lengthTime: number, delay: number, task: (ratio: number) => boolean, onAnimFinish: () => void) {
+        super(delay, onAnimFinish);
+        this.lengthTime = lengthTime;
+        this.task = task;
+    }
+
+    hasAnimFinished(): boolean {
+        return this._hasAnimFinished;
+    }
+
+    handle(elapsedTimeMilli: number) {
+        if (elapsedTimeMilli > this.lengthTime) {
             this._hasAnimFinished = true;
             return;
         }
-
-        const ratio = elapsedTimeFromAnimStarted / this.lengthTime;
+        // elapsedTime / lengthTime が 1.0 を超えないよう min をとっておく
+        const ratio = Math.min(elapsedTimeMilli, this.lengthTime) / this.lengthTime;
         const isContinue = this.task(ratio);
         this._hasAnimFinished ||= !isContinue;
+    }
+}
+
+
+class SpriteSheetAnimation extends MyAnimation {
+
+    readonly frameWidth: number;
+    readonly frameHeight: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    private _currentFrameIndex: number;
+
+    constructor(
+        public readonly spriteSheet: HTMLImageElement,
+        public readonly nrow: number,
+        public readonly ncol: number,
+        public readonly duration: number,
+        delay: number,
+        onAnimFinished: () => void,
+    ) {
+        super(delay, onAnimFinished);
+        this.frameHeight = (spriteSheet.height / nrow) | 0;
+        this.frameWidth = (spriteSheet.width / ncol) | 0;
+        this._currentFrameIndex = -1;
+    }
+
+    get allFrameCount(): number {
+        return this.nrow * this.ncol;
+    }
+
+    hasAnimFinished(): boolean {
+        return this._currentFrameIndex >= this.allFrameCount;
+    }
+
+    handle(elapsedTimeMilli: number) {
+        this._currentFrameIndex = (elapsedTimeMilli / this.duration) | 0;
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        if (this.hasAnimFinished()) return;
+
+        const row = (this._currentFrameIndex / this.ncol) | 0;
+        const col = (this._currentFrameIndex % this.ncol);
+        const sx = this.frameWidth * col;
+        const sy = this.frameHeight * row;
+        ctx.drawImage(this.spriteSheet, sx, sy, this.frameWidth, this.frameHeight, this.x, this.y, this.w, this.h);
+    }
+}
+
+
+class BlinkAnimation extends MyAnimation {
+    private _hasAnimFinished: boolean;
+
+    constructor(
+        readonly obj: { visible: boolean },
+        readonly timeLength: number,
+        readonly duration: number,
+        delay: number,
+        onAnimFinish: () => void
+    ) {
+        super(delay, onAnimFinish);
+        this._hasAnimFinished = false;
+    }
+
+    handle(elapsedTimeMilli: number): void {
+        if (elapsedTimeMilli > this.timeLength) {
+            this._hasAnimFinished = true;
+            return;
+        }
+        const n = (elapsedTimeMilli / this.duration) | 0;
+        this.obj.visible = !!(n & 1);
+    }
+
+    hasAnimFinished(): boolean {
+        return this._hasAnimFinished;
     }
 }
 
@@ -515,6 +598,9 @@ class SubmarineManager {
     private submarineImageHeight: number;
     private submarineImageWidth: number;
 
+    private readonly explosionSpriteSheet: HTMLImageElement;
+    private explosionAnimation: SpriteSheetAnimation;
+
     constructor(gridView: GridView, showHPEnabled: boolean) {
         this.gridView = gridView;
         this.showHPEnabled = showHPEnabled;
@@ -523,8 +609,10 @@ class SubmarineManager {
 
         this.teamASubmarineImage = new Image();
         this.teamBSubmarineImage = new Image();
+        this.explosionSpriteSheet = new Image();
         this.teamASubmarineImage.src = "assets/submarine-red.png"
         this.teamBSubmarineImage.src = "assets/submarine-blue.png"
+        this.explosionSpriteSheet.src = "assets/explosion.png";
     }
 
     // 新しく潜水艦を追加する。
@@ -578,12 +666,42 @@ class SubmarineManager {
         }
     }
 
-    decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID): void {
+    decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID, onAnimFinish: () => void): void {
         const submarine = this.getSubmarineAt(pos, teamID);
-        if (submarine == null) return;
-        submarine.hp -= 1;
-        if (submarine.hp <= 0) {
-            this.deleteSubmarineAt(pos, teamID);
+
+        {
+            this.explosionAnimation = new SpriteSheetAnimation(this.explosionSpriteSheet,
+                5, 10, 20, 10, onAnimFinish);
+
+            const cellPos = this.gridView.getCellPosition(pos.row, pos.col);
+            const w = this.gridView.cellWidth * 1.5;
+            const h = this.gridView.cellHeight * 1.5;
+            this.explosionAnimation.x = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
+            this.explosionAnimation.y = cellPos.y + this.gridView.cellHeight - h - this.gridView.cellHeight * 0.3;
+            this.explosionAnimation.w = w;
+            this.explosionAnimation.h = h;
+            this.explosionAnimation.start();
+        }
+
+        if (submarine != null) {
+            const self = this;
+
+            function onAnimFinish(): void {
+                submarine.visible = true;
+                submarine.hp -= 1;
+                if (submarine.hp <= 0) {
+                    new TimeRatioAnimation(500, 100,
+                        (ratio: number): boolean => {
+                            submarine.opacity = 1.0 - ratio;
+                            return true;
+                        },
+                        () => {
+                            self.deleteSubmarineAt(pos, teamID);
+                        }).start();
+                }
+            }
+
+            new BlinkAnimation(submarine, 1000, 100, 200, onAnimFinish).start();
         }
     }
 
@@ -682,6 +800,8 @@ class SubmarineManager {
         for (const teamID of [TeamID.TEAM_A, TeamID.TEAM_B]) {
             const submarineArray = this.getSubmarineArrayOfTeam(teamID);
             for (let submarine of submarineArray) {
+                if (submarine.visible == false) continue;
+
                 const img = this.getSubmarineImage(teamID);
                 ctx.globalAlpha = submarine.opacity;
                 ctx.drawImage(img, submarine.x, submarine.y, this.submarineImageWidth, this.submarineImageHeight);
@@ -697,6 +817,10 @@ class SubmarineManager {
                     submarine.x + this.submarineImageWidth / 2,
                     submarine.y);
             }
+        }
+
+        if (this.explosionAnimation != null) {
+            this.explosionAnimation.draw(ctx);
         }
         ctx.restore();
     }
@@ -842,6 +966,11 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
     }
 
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
     setup(): void {
         GUIDE_MESSAGE_ELEM.innerText = "初期配置を設定してください。\nセルをクリックして潜水艦の有無を切り替えられます。";
         this._mouseEventSetup();
@@ -902,11 +1031,6 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     onMouseLeaveCell(cell: Cell): void {
-    }
-
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
@@ -1049,6 +1173,7 @@ class BattleScene implements Scene, CellEventHandler {
             this.moveButton.onclick = this.onMoveButtonClick.bind(this);
             this.applyButton.onclick = this.onApplyButtonClick.bind(this);
         }
+
     }
 
     static calcAttackableCellGrid(submarinePoses: CellPos[], nrow: number, ncol: number): boolean[][] {
@@ -1091,6 +1216,11 @@ class BattleScene implements Scene, CellEventHandler {
         }
 
         return movableCellGrid;
+    }
+
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     setup(): void {
@@ -1187,13 +1317,20 @@ class BattleScene implements Scene, CellEventHandler {
             case BattleSceneState.OP_TYPE_SELECT:
                 break;
             case BattleSceneState.ATTACK_DEST_SELECT: {
-                this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn));
-                this.incrementTurn();
-                if (this.submarineManager.isTeamAWinner() || this.submarineManager.isTeamBWinner()) {
-                    this.enterBattleFinishedState();
-                } else {
-                    this.enterOpTypeSelectState();
+                const self = this;
+
+                function onAnimFinish(): void {
+                    self.incrementTurn();
+                    self.enterOpTypeSelectState();
+                    if (self.submarineManager.isTeamAWinner() || self.submarineManager.isTeamBWinner()) {
+                        self.enterBattleFinishedState();
+                    } else {
+                        self.enterOpTypeSelectState();
+                    }
                 }
+
+                this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn), onAnimFinish);
+                this.enterAnimatingState();
                 break;
             }
             case BattleSceneState.MOVE_ACTOR_SELECT:
@@ -1349,11 +1486,6 @@ class BattleScene implements Scene, CellEventHandler {
             const cell = this.gridView.getCellAt(this.moveActor);
             cell.fillColor = MyColor.moveActorCyan;
         }
-    }
-
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
