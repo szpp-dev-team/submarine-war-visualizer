@@ -158,11 +158,8 @@ class TimeRatioAnimation implements MyAnimation {
 }
 
 
-class AnimationExecutor {
+abstract class AnimationExecutor {
     private static _animationList: MyAnimation[] = [];
-
-    private constructor() {
-    }
 
     static registerAnimation(anim: MyAnimation): void {
         anim.update = anim.update.bind(anim);
