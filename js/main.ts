@@ -578,12 +578,6 @@ class SubmarineManager {
         }
     }
 
-    decrementHPAt(pos: CellPos, teamID: TeamID): void {
-        const submarine = this.getSubmarineAt(pos, teamID);
-        if (submarine == null) return;
-        submarine.hp -= 1;
-    }
-
     decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID): void {
         const submarine = this.getSubmarineAt(pos, teamID);
         if (submarine == null) return;
