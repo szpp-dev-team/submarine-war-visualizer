@@ -866,23 +866,7 @@ class TitleScene implements Scene {
         this.sceneManager = sceneManager;
 
         this.clickHandler = () => {
-            // let nextScene = new InitialPositionInputScene(this.sceneManager);
-            let nextScene = new BattleScene(
-                this.sceneManager,
-                [
-                    {col: 0, row: 0},
-                    {col: 0, row: 4},
-                    {col: 4, row: 0},
-                    {col: 4, row: 4},
-                ],
-                [
-                    {col: 0, row: 0},
-                    {col: 1, row: 1},
-                    {col: 3, row: 2},
-                    {col: 3, row: 4},
-                ],
-                TeamID.TEAM_B
-            );
+            let nextScene = new InitialPositionInputScene(this.sceneManager);
             this.sceneManager.changeScene(nextScene);
         };
 
@@ -933,6 +917,11 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     readonly teamBShowButton: HTMLButtonElement;
     readonly battleButton: HTMLButtonElement;
 
+    readonly teamAFirstTurnRadioButton: HTMLInputElement;
+    readonly teamBFirstTurnRadioButton: HTMLInputElement;
+    readonly teamAFirstTurnLabel: HTMLLabelElement;
+    readonly teamBFirstTurnLabel: HTMLLabelElement;
+
     constructor(sceneManager: SceneManager) {
         this.sceneManager = sceneManager;
         const canvas = this.sceneManager.canvas;
@@ -951,19 +940,51 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 
         this.cellEventDispatcher = new CellEventDispatcher(this.gridView, this);
 
-        this.teamAShowButton = createBlumaButton('TeamAの配置へ', MyColor.teamA_red, 'white');
-        this.teamBShowButton = createBlumaButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
-        this.battleButton = createBlumaButton('Start Battle', 'forestgreen', 'white');
-        this.teamAShowButton.style.top = "10px";
-        this.teamAShowButton.style.left = "10px";
-        this.teamBShowButton.style.top = "60px";
-        this.teamBShowButton.style.left = "10px";
-        this.battleButton.style.bottom = "20px";
-        this.battleButton.style.right = "20px";
+        {
+            this.teamAShowButton = createBlumaButton('TeamAの配置へ', MyColor.teamA_red, 'white');
+            this.teamBShowButton = createBlumaButton('TeamBの配置へ', MyColor.teamB_blue, 'white');
+            this.battleButton = createBlumaButton('Start Battle', 'forestgreen', 'white');
+            this.teamAShowButton.style.top = "10px";
+            this.teamAShowButton.style.left = "10px";
+            this.teamBShowButton.style.top = "60px";
+            this.teamBShowButton.style.left = "10px";
+            this.battleButton.style.bottom = "20px";
+            this.battleButton.style.right = "20px";
 
-        this.teamAShowButton.onclick = this._onTeamAShowButtonClicked.bind(this);
-        this.teamBShowButton.onclick = this._onTeamBShowButtonClicked.bind(this);
-        this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
+            this.teamAShowButton.onclick = this._onTeamAShowButtonClicked.bind(this);
+            this.teamBShowButton.onclick = this._onTeamBShowButtonClicked.bind(this);
+            this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
+        }
+        {
+            function createRadioButton (name: string): HTMLInputElement {
+                const radioButton = document.createElement('input') as HTMLInputElement;
+                radioButton.name = name;
+                radioButton.type = 'radio';
+                // radioButton.style.position = 'absolute';
+                return radioButton;
+            }
+            function createLabelWithinRadioButton (labelValue: string, radio: HTMLInputElement, height: number): HTMLLabelElement {
+                const label = document.createElement('label') as HTMLLabelElement;
+                label.innerText = labelValue;
+                label.prepend(radio);
+
+                label.classList.add('radio');
+                radio.style.width = radio.style.height = ((height * 0.8) | 0) + "px";
+                label.style.fontSize = height + "px";
+                label.style.position = 'absolute';
+                return label;
+            }
+            this.teamAFirstTurnRadioButton = createRadioButton('first-turn-team');
+            this.teamBFirstTurnRadioButton = createRadioButton('first-turn-team');
+            this.teamAFirstTurnRadioButton.checked = true;
+
+            this.teamAFirstTurnLabel = createLabelWithinRadioButton('TeamA先攻', this.teamAFirstTurnRadioButton, 24);
+            this.teamBFirstTurnLabel = createLabelWithinRadioButton('TeamB先攻', this.teamBFirstTurnRadioButton, 24);
+            this.teamAFirstTurnLabel.style.right = "30px";
+            this.teamAFirstTurnLabel.style.bottom = "140px";
+            this.teamBFirstTurnLabel.style.right = "30px";
+            this.teamBFirstTurnLabel.style.bottom = "100px";
+        }
     }
 
     private static _drawBack(ctx: CanvasRenderingContext2D): void {
@@ -978,6 +999,8 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         CANVAS_WRAPPER_ELEM.appendChild(this.teamAShowButton);
         CANVAS_WRAPPER_ELEM.appendChild(this.teamBShowButton);
         CANVAS_WRAPPER_ELEM.appendChild(this.battleButton);
+        CANVAS_WRAPPER_ELEM.appendChild(this.teamAFirstTurnLabel);
+        CANVAS_WRAPPER_ELEM.appendChild(this.teamBFirstTurnLabel);
     }
 
     tearDown(): void {
@@ -987,6 +1010,8 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         CANVAS_WRAPPER_ELEM.removeChild(this.teamAShowButton);
         CANVAS_WRAPPER_ELEM.removeChild(this.teamBShowButton);
         CANVAS_WRAPPER_ELEM.removeChild(this.battleButton);
+        CANVAS_WRAPPER_ELEM.removeChild(this.teamAFirstTurnLabel);
+        CANVAS_WRAPPER_ELEM.removeChild(this.teamBFirstTurnLabel);
     }
 
     update(timestamp: number): void {
@@ -1075,10 +1100,11 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             return;
         }
         GUIDE_MESSAGE_ELEM.innerText = "";
+        const firstTurnTeam = this.teamAFirstTurnRadioButton.checked ? TeamID.TEAM_A : TeamID.TEAM_B;
         const nextScene = new BattleScene(this.sceneManager,
             this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A),
             this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B),
-            TeamID.TEAM_A);
+            firstTurnTeam);
         this.sceneManager.changeScene(nextScene);
     }
 
