@@ -686,7 +686,7 @@ class SubmarineManager {
         if (submarine != null) {
             const self = this;
 
-            function onAnimFinish(): void {
+            function onAnimFinish_wrap(): void {
                 submarine.visible = true;
                 submarine.hp -= 1;
                 if (submarine.hp <= 0) {
@@ -701,7 +701,7 @@ class SubmarineManager {
                 }
             }
 
-            new BlinkAnimation(submarine, 1000, 100, 200, onAnimFinish).start();
+            new BlinkAnimation(submarine, 1000, 100, 200, onAnimFinish_wrap).start();
         }
     }
 
