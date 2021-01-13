@@ -1,5 +1,4 @@
 .idea/
-*.js
 *.js.map
 _old-*
 *.zip
