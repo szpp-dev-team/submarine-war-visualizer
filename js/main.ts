@@ -1517,7 +1517,7 @@ class BattleScene implements Scene, CellEventHandler {
             underlineColor = MyColor.teamB_blue;
         }
 
-        const title = "#" + zeroPadding(this.currentTurnCount, 2) + ":  " + teamName + " のターン";
+        const title = "#" + zeroPadding(this.currentTurnCount, 2) + "  " + teamName + " のターン";
 
         drawUnderlinedText(ctx, title,
             this.sceneManager.canvas.width / 2,
