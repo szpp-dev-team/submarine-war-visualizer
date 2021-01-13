@@ -471,7 +471,6 @@ class GridView {
 
         for (let col = 0; col < this.ncol; ++col) {
             const text = String.fromCharCode(charCode1 + col);
-            const rect = Geometry.textRectBounding(ctx, text);
             const x = this.getCellPosition(0, col).x + (this.cellWidth / 2);
             const y = this.topY - 5;
             ctx.fillText(text, x, y);
@@ -613,7 +612,6 @@ class SubmarineManager {
                 ctx.textAlign = "center";
                 ctx.textBaseline = "bottom";
                 const hpText = "♥".repeat(submarine.hp) + "♡".repeat(3 - submarine.hp);
-                const rect = Geometry.textRectBounding(ctx, hpText);
                 ctx.fillText(hpText,
                     submarine.x + this.submarineImageWidth / 2,
                     submarine.y);
