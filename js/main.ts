@@ -95,41 +95,24 @@ abstract class MyColor {
 }
 
 
-interface MyAnimation {
-    update: (timestamp: number) => void;
-    hasAnimFinished: () => boolean;
-    onAnimFinish: () => void;
-}
-
-
-class TimeRatioAnimation implements MyAnimation {
-    readonly lengthTime: number;
-    readonly delay: number;
-    readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
-    readonly onAnimFinish: () => void;
-
+abstract class MyAnimation {
     private _timestampAtRegistered = -1;
     private _timestampAtAnimStarted = -1;
-    private _hasAnimFinished = false;
 
-    // 時間の単位は全てミリ秒
-    constructor(lengthTime: number, delay: number, task: (ratio: number) => boolean, onAnimFinish: () => void) {
-        this.lengthTime = lengthTime;
-        this.delay = delay;
-        this.task = task;
-        this.onAnimFinish = onAnimFinish;
+    protected constructor(
+        readonly delay: number,
+        readonly onAnimFinish: () => void) {
     }
 
-    hasAnimFinished(): boolean {
-        return this._hasAnimFinished;
-    }
+    abstract hasAnimFinished(): boolean;
+
+    abstract handle(elapsedTimeMilli: number): void;
 
     start(): void {
         AnimationExecutor.registerAnimation(this);
     }
 
     update(timestamp: number): void {
-
         if (this.hasAnimFinished()) {
             return;
         }
@@ -146,12 +129,35 @@ class TimeRatioAnimation implements MyAnimation {
             this._timestampAtAnimStarted = timestamp;
         }
         const elapsedTimeFromAnimStarted = timestamp - this._timestampAtAnimStarted;
-        if (elapsedTimeFromAnimStarted > this.lengthTime) {
+        this.handle(elapsedTimeFromAnimStarted);
+    }
+}
+
+
+class TimeRatioAnimation extends MyAnimation {
+    readonly lengthTime: number;
+    readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
+
+    private _hasAnimFinished = false;
+
+    // 時間の単位は全てミリ秒
+    constructor(lengthTime: number, delay: number, task: (ratio: number) => boolean, onAnimFinish: () => void) {
+        super(delay, onAnimFinish);
+        this.lengthTime = lengthTime;
+        this.task = task;
+    }
+
+    hasAnimFinished(): boolean {
+        return this._hasAnimFinished;
+    }
+
+    handle(elapsedTimeMilli: number) {
+        if (elapsedTimeMilli > this.lengthTime) {
             this._hasAnimFinished = true;
             return;
         }
-
-        const ratio = elapsedTimeFromAnimStarted / this.lengthTime;
+        // elapsedTime / lengthTime が 1.0 を超えないよう min をとっておく
+        const ratio = Math.min(elapsedTimeMilli, this.lengthTime) / this.lengthTime;
         const isContinue = this.task(ratio);
         this._hasAnimFinished ||= !isContinue;
     }
