@@ -52,13 +52,8 @@ header > h1 {
     position: relative;
 }
 
-/* -------------------------------------------------------------------------------
- Canvas bottom controller
-------------------------------------------------------------------------------- */
-#canvas-bottom-controller {
-    display: flex;
-    justify-content: space-between;
-    font-size: 20px;
+#main-canvas {
+    border: 1px solid #c0c0c0;
 }
 
 /* -------------------------------------------------------------------------------
