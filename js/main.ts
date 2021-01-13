@@ -598,6 +598,9 @@ class SubmarineManager {
     private submarineImageHeight: number;
     private submarineImageWidth: number;
 
+    private readonly explosionSpriteSheet: HTMLImageElement;
+    private explosionAnimation: SpriteSheetAnimation;
+
     constructor(gridView: GridView, showHPEnabled: boolean) {
         this.gridView = gridView;
         this.showHPEnabled = showHPEnabled;
@@ -606,8 +609,10 @@ class SubmarineManager {
 
         this.teamASubmarineImage = new Image();
         this.teamBSubmarineImage = new Image();
+        this.explosionSpriteSheet = new Image();
         this.teamASubmarineImage.src = "assets/submarine-red.png"
         this.teamBSubmarineImage.src = "assets/submarine-blue.png"
+        this.explosionSpriteSheet.src = "assets/explosion.png";
     }
 
     // 新しく潜水艦を追加する。
@@ -661,12 +666,42 @@ class SubmarineManager {
         }
     }
 
-    decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID): void {
+    decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID, onAnimFinish: () => void): void {
         const submarine = this.getSubmarineAt(pos, teamID);
-        if (submarine == null) return;
-        submarine.hp -= 1;
-        if (submarine.hp <= 0) {
-            this.deleteSubmarineAt(pos, teamID);
+
+        {
+            this.explosionAnimation = new SpriteSheetAnimation(this.explosionSpriteSheet,
+                5, 10, 20, 10, onAnimFinish);
+
+            const cellPos = this.gridView.getCellPosition(pos.row, pos.col);
+            const w = this.gridView.cellWidth * 1.5;
+            const h = this.gridView.cellHeight * 1.5;
+            this.explosionAnimation.x = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
+            this.explosionAnimation.y = cellPos.y + this.gridView.cellHeight - h - this.gridView.cellHeight * 0.3;
+            this.explosionAnimation.w = w;
+            this.explosionAnimation.h = h;
+            this.explosionAnimation.start();
+        }
+
+        if (submarine != null) {
+            const self = this;
+
+            function onAnimFinish(): void {
+                submarine.visible = true;
+                submarine.hp -= 1;
+                if (submarine.hp <= 0) {
+                    new TimeRatioAnimation(500, 100,
+                        (ratio: number): boolean => {
+                            submarine.opacity = 1.0 - ratio;
+                            return true;
+                        },
+                        () => {
+                            self.deleteSubmarineAt(pos, teamID);
+                        }).start();
+                }
+            }
+
+            new BlinkAnimation(submarine, 1000, 100, 200, onAnimFinish).start();
         }
     }
 
@@ -782,6 +817,10 @@ class SubmarineManager {
                     submarine.x + this.submarineImageWidth / 2,
                     submarine.y);
             }
+        }
+
+        if (this.explosionAnimation != null) {
+            this.explosionAnimation.draw(ctx);
         }
         ctx.restore();
     }
@@ -1278,13 +1317,20 @@ class BattleScene implements Scene, CellEventHandler {
             case BattleSceneState.OP_TYPE_SELECT:
                 break;
             case BattleSceneState.ATTACK_DEST_SELECT: {
-                this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn));
-                this.incrementTurn();
-                if (this.submarineManager.isTeamAWinner() || this.submarineManager.isTeamBWinner()) {
-                    this.enterBattleFinishedState();
-                } else {
-                    this.enterOpTypeSelectState();
+                const self = this;
+
+                function onAnimFinish(): void {
+                    self.incrementTurn();
+                    self.enterOpTypeSelectState();
+                    if (self.submarineManager.isTeamAWinner() || self.submarineManager.isTeamBWinner()) {
+                        self.enterBattleFinishedState();
+                    } else {
+                        self.enterOpTypeSelectState();
+                    }
                 }
+
+                this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn), onAnimFinish);
+                this.enterAnimatingState();
                 break;
             }
             case BattleSceneState.MOVE_ACTOR_SELECT:
