@@ -927,6 +927,11 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
     }
 
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
     setup(): void {
         GUIDE_MESSAGE_ELEM.innerText = "初期配置を設定してください。\nセルをクリックして潜水艦の有無を切り替えられます。";
         this._mouseEventSetup();
@@ -987,11 +992,6 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     onMouseLeaveCell(cell: Cell): void {
-    }
-
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
@@ -1134,6 +1134,7 @@ class BattleScene implements Scene, CellEventHandler {
             this.moveButton.onclick = this.onMoveButtonClick.bind(this);
             this.applyButton.onclick = this.onApplyButtonClick.bind(this);
         }
+
     }
 
     static calcAttackableCellGrid(submarinePoses: CellPos[], nrow: number, ncol: number): boolean[][] {
@@ -1176,6 +1177,11 @@ class BattleScene implements Scene, CellEventHandler {
         }
 
         return movableCellGrid;
+    }
+
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     setup(): void {
@@ -1434,11 +1440,6 @@ class BattleScene implements Scene, CellEventHandler {
             const cell = this.gridView.getCellAt(this.moveActor);
             cell.fillColor = MyColor.moveActorCyan;
         }
-    }
-
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
