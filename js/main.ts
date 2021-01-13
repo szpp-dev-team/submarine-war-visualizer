@@ -891,9 +891,10 @@ class TitleScene implements Scene {
 
     private _drawMessage(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.darkGray;
+        ctx.font = '64px sans-serif'
+        ctx.fillText("潜水艦撃沈ゲーム", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 32);
         ctx.font = '32px sans-serif'
-        const msg = "潜水艦の初期配置を入力してOKボタンを押してください";
-        ctx.fillText(msg, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        ctx.fillText("クリックして開始します", CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 32);
     }
 
     private _drawBack(ctx: CanvasRenderingContext2D): void {
