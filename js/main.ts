@@ -412,8 +412,7 @@ class GridView {
     }
 
     getCellAt(pos: CellPos): Cell {
-        const cell = this.cells.find(c => c.row == pos.row && c.col == pos.col);
-        return cell;
+        return this.cells.find(c => c.row == pos.row && c.col == pos.col);
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
