@@ -765,6 +765,8 @@ class SubmarineManager {
         for (const teamID of [TeamID.TEAM_A, TeamID.TEAM_B]) {
             const submarineArray = this.getSubmarineArrayOfTeam(teamID);
             for (let submarine of submarineArray) {
+                if (submarine.visible == false) continue;
+
                 const img = this.getSubmarineImage(teamID);
                 ctx.globalAlpha = submarine.opacity;
                 ctx.drawImage(img, submarine.x, submarine.y, this.submarineImageWidth, this.submarineImageHeight);
