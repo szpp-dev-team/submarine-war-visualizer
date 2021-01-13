@@ -531,6 +531,36 @@ class SubmarineManager {
     }
 
     // 新しく潜水艦を追加する。
+
+    static calcSubmarineDrawnPosConstrainedToCell(
+        pos: CellPos,
+        teamID: TeamID,
+        gridView: GridView,
+        submarineWidth: number,
+        submarineHeight: number,
+        isOpponentAtSameCell: boolean
+    ): { x: number, y: number } {
+        const cellPos = gridView.getCellPosition(pos.row, pos.col);
+
+        if (isOpponentAtSameCell) {
+            const cx = Geometry.centerPos(submarineWidth, gridView.cellWidth) + cellPos.x;
+            const cy = Geometry.centerPos(submarineHeight, gridView.cellHeight) + cellPos.y;
+            const dx = gridView.cellWidth * 0.14;
+            const dy = gridView.cellHeight * 0.22;
+            const offsetY = gridView.cellHeight * 0.07;
+
+            if (teamID == TeamID.TEAM_A) {
+                return {x: cx - dx, y: cy + dy + offsetY};
+            } else {
+                return {x: cx + dx, y: cy - dy + offsetY};
+            }
+        } else {
+            const x = Geometry.centerPos(submarineWidth, gridView.cellWidth) + cellPos.x;
+            const y = Geometry.centerPos(submarineHeight, gridView.cellHeight) + cellPos.y;
+            return {x: x, y: y};
+        }
+    }
+
     // 指定マスに既に潜水艦が存在しても追加する。
     newSubmarineAt(pos: CellPos, teamID: TeamID): void {
         const s = new Submarine(pos.row, pos.col, 3);
@@ -566,12 +596,63 @@ class SubmarineManager {
         }
     }
 
+    moveFromTo(from: CellPos, to: CellPos, teamID: TeamID, animTimeLength: number, onAnimFinish: () => void): void {
+        const actor = this.getSubmarineAt(from, teamID);
+        if (actor == null) return;
+        actor.row = to.row;
+        actor.col = to.col;
 
-    moveFromTo(from: CellPos, to: CellPos, teamID: TeamID): void {
-        const submarine = this.getSubmarineAt(from, teamID);
-        if (submarine == null) return;
-        submarine.row = to.row;
-        submarine.col = to.col;
+        const opponent = opponentTeamID(teamID);
+
+        const moveInfos = [] as { submarine: Submarine, fromX: number, fromY: number, toX: number, toY: number }[];
+
+        const gridView = this.gridView;
+        const submarineWidth = this.submarineImageWidth;
+        const submarineHeight = this.submarineImageHeight;
+
+        function pushMoveInfo(submarine: Submarine, to: CellPos, teamID: TeamID, isOpponentAtSameCell: boolean): void {
+            const fromX = submarine.x;
+            const fromY = submarine.y;
+            const {x: toX, y: toY} = SubmarineManager.calcSubmarineDrawnPosConstrainedToCell(
+                to, teamID, gridView,
+                submarineWidth, submarineHeight,
+                isOpponentAtSameCell);
+            moveInfos.push({submarine: submarine, fromX: fromX, fromY: fromY, toX: toX, toY: toY});
+            submarine.isConstrainedToCell = false;
+        }
+
+        if (this.isExistsAt(from, opponent)) {
+            const submarine = this.getSubmarineAt(from, opponent);
+            pushMoveInfo(submarine, submarine, opponent, isSameCellPos(submarine, actor));
+        }
+        if (this.isExistsAt(to, opponent)) {
+            const submarine = this.getSubmarineAt(to, opponent);
+            pushMoveInfo(submarine, submarine, opponent, isSameCellPos(submarine, actor));
+        }
+
+        pushMoveInfo(actor, to, teamID, this.isExistsAt(to, opponent));
+
+        function animTask(ratio: number): boolean {
+            const k = Easing.easeOutCubic(ratio);
+
+            for (const moveInfo of moveInfos) {
+                const x = moveInfo.fromX + (moveInfo.toX - moveInfo.fromX) * k;
+                const y = moveInfo.fromY + (moveInfo.toY - moveInfo.fromY) * k;
+                moveInfo.submarine.x = x;
+                moveInfo.submarine.y = y;
+            }
+            return true;
+        }
+
+        function onAnimFinishWrap(): void {
+            for (const moveInfo of moveInfos) {
+                moveInfo.submarine.isConstrainedToCell = true;
+            }
+            onAnimFinish()
+        }
+
+        new TimeRatioAnimation(animTimeLength, 100, animTask, onAnimFinishWrap)
+            .start();
     }
 
     isTeamAWinner(): boolean {
@@ -589,7 +670,16 @@ class SubmarineManager {
         for (const teamID of [TeamID.TEAM_A, TeamID.TEAM_B]) {
             const submarineArray = this.getSubmarineArrayOfTeam(teamID);
             for (let submarine of submarineArray) {
-                const drawnPos = this.calcSubmarineDrawnPos(submarine, teamID);
+                if (!submarine.isConstrainedToCell) {
+                    continue;
+                }
+
+                const drawnPos = SubmarineManager.calcSubmarineDrawnPosConstrainedToCell(
+                    submarine, teamID,
+                    this.gridView,
+                    this.submarineImageWidth, this.submarineImageHeight,
+                    this.isExistsAt(submarine, opponentTeamID(teamID)));
+
                 submarine.x = drawnPos.x;
                 submarine.y = drawnPos.y;
             }
@@ -622,35 +712,6 @@ class SubmarineManager {
 
     getSubmarineImage(teamID: TeamID): HTMLImageElement {
         return (teamID == TeamID.TEAM_A ? this.teamASubmarineImage : this.teamBSubmarineImage);
-    }
-
-    calcSubmarineDrawnPos(submarine: Submarine, teamID: TeamID): { x: number, y: number } {
-        if (!submarine.isConstrainedToCell) {
-            return {x: submarine.x, y: submarine.y};
-        }
-
-        const isOpponentAtSameCell = this.getSubmarineAt(submarine, opponentTeamID(teamID)) != null;
-        const w = this.submarineImageWidth;
-        const h = this.submarineImageHeight;
-        const cellPos = this.gridView.getCellPosition(submarine.row, submarine.col);
-
-        if (isOpponentAtSameCell) {
-            const cx = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
-            const cy = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
-            const dx = this.gridView.cellWidth * 0.14;
-            const dy = this.gridView.cellHeight * 0.22;
-            const offsetY = this.gridView.cellHeight * 0.07;
-
-            if (teamID == TeamID.TEAM_A) {
-                return {x: cx - dx, y: cy + dy + offsetY};
-            } else {
-                return {x: cx + dx, y: cy - dy + offsetY};
-            }
-        } else {
-            const x = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
-            const y = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
-            return {x: x, y: y};
-        }
     }
 
     getSubmarineArrayOfTeam(teamID: TeamID): Submarine[] {
@@ -924,6 +985,7 @@ enum BattleSceneState {
     ATTACK_DEST_SELECT,
     MOVE_ACTOR_SELECT,
     MOVE_DEST_SELECT,
+    ANIMATING,
     BATTLE_FINISHED,
 }
 
@@ -1146,9 +1208,15 @@ class BattleScene implements Scene, CellEventHandler {
             case BattleSceneState.MOVE_ACTOR_SELECT:
                 break;
             case BattleSceneState.MOVE_DEST_SELECT: {
-                this.submarineManager.moveFromTo(this.moveActor, this.moveDest, this.currentTurn);
-                this.incrementTurn();
-                this.enterOpTypeSelectState();
+                const self = this;
+                const onAnimFinish = () => {
+                    self.incrementTurn();
+                    self.enterOpTypeSelectState();
+                }
+                this.submarineManager.moveFromTo(this.moveActor, this.moveDest, this.currentTurn, 500, onAnimFinish);
+                this.enterAnimatingState();
+                // this.incrementTurn();
+                // this.enterOpTypeSelectState();
                 break;
             }
         }
@@ -1183,6 +1251,14 @@ class BattleScene implements Scene, CellEventHandler {
         this.applyButton.disabled = true;
         this.highlightMoveDestCandidateCells();
         GUIDE_MESSAGE_ELEM.innerText = "移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。";
+    }
+
+    enterAnimatingState(): void {
+        this.currentState = BattleSceneState.ANIMATING;
+        this.setButtonDisplayStyle(false, false, false, false);
+        this.applyButton.disabled = true;
+        this.resetCellsStyle();
+        GUIDE_MESSAGE_ELEM.innerText = "";
     }
 
     enterBattleFinishedState(): void {
