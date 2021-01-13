@@ -962,7 +962,6 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
                 const radioButton = document.createElement('input') as HTMLInputElement;
                 radioButton.name = name;
                 radioButton.type = 'radio';
-                // radioButton.style.position = 'absolute';
                 return radioButton;
             }
             function createLabelWithinRadioButton (labelValue: string, radio: HTMLInputElement, height: number): HTMLLabelElement {
