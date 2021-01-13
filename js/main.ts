@@ -23,11 +23,11 @@ function zeroPadding(value: number, digitLength: number): string {
 
 
 function drawUnderlinedText(ctx: CanvasRenderingContext2D,
-                   text: string,
-                   centerX: number,
-                   topY: number,
-                   fontSize: number,
-                   underlineColor: string
+                            text: string,
+                            centerX: number,
+                            topY: number,
+                            fontSize: number,
+                            underlineColor: string
 ): void {
     ctx.save();
 
@@ -410,17 +410,14 @@ function teamColor(teamID: TeamID): string {
 
 // teamA, teamB 両方の潜水艦を管理する
 class SubmarineManager {
+    showHPEnabled: boolean;
     private readonly gridView: GridView;
     private readonly teamASubmarines: Submarine[];
     private readonly teamBSubmarines: Submarine[];
-
     private readonly teamASubmarineImage: HTMLImageElement;
     private readonly teamBSubmarineImage: HTMLImageElement;
-
     private submarineImageHeight: number;
     private submarineImageWidth: number;
-
-    showHPEnabled: boolean;
 
     constructor(gridView: GridView, showHPEnabled: boolean) {
         this.gridView = gridView;
@@ -732,6 +729,31 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this._drawTitle(ctx);
     }
 
+    onMouseClickCell(cell: Cell): void {
+        const row = cell.row;
+        const col = cell.col;
+        const existence = (this.currentTeam == TeamID.TEAM_A
+            ? this.teamASubmarineExistenceGrid
+            : this.teamBSubmarineExistenceGrid);
+        const submarineManager = (this.currentTeam == TeamID.TEAM_A
+            ? this.teamASubmarineManager
+            : this.teamBSubmarineManager);
+
+        if (existence[row][col]) {
+            existence[row][col] = false;
+            submarineManager.deleteSubmarineAt(cell, this.currentTeam);
+        } else {
+            existence[row][col] = true;
+            submarineManager.newSubmarineAt(cell, this.currentTeam);
+        }
+    }
+
+    onMouseEnterCell(cell: Cell): void {
+    }
+
+    onMouseLeaveCell(cell: Cell): void {
+    }
+
     private _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -760,31 +782,6 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 
     private _mouseEventSetup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
-    }
-
-    onMouseClickCell(cell: Cell): void {
-        const row = cell.row;
-        const col = cell.col;
-        const existence = (this.currentTeam == TeamID.TEAM_A
-            ? this.teamASubmarineExistenceGrid
-            : this.teamBSubmarineExistenceGrid);
-        const submarineManager = (this.currentTeam == TeamID.TEAM_A
-            ? this.teamASubmarineManager
-            : this.teamBSubmarineManager);
-
-        if (existence[row][col]) {
-            existence[row][col] = false;
-            submarineManager.deleteSubmarineAt(cell, this.currentTeam);
-        } else {
-            existence[row][col] = true;
-            submarineManager.newSubmarineAt(cell, this.currentTeam);
-        }
-    }
-
-    onMouseEnterCell(cell: Cell): void {
-    }
-
-    onMouseLeaveCell(cell: Cell): void {
     }
 
     private _onTeamAShowButtonClicked(): void {
@@ -903,6 +900,48 @@ class BattleScene implements Scene, CellEventHandler {
         }
     }
 
+    static calcAttackableCellGrid(submarinePoses: CellPos[], nrow: number, ncol: number): boolean[][] {
+        const attackableCellGrid = newDim2Array(nrow, ncol, false);
+
+        // 各潜水艦の周囲1マスを true にしておく
+        for (const pos of submarinePoses) {
+            for (let row = pos.row - 1; row <= pos.row + 1; ++row) {
+                for (let col = pos.col - 1; col <= pos.col + 1; ++col) {
+                    if (row < 0 || row >= nrow || col < 0 || col >= ncol) continue;
+                    attackableCellGrid[row][col] = true;
+                }
+            }
+        }
+
+        // 自軍の潜水艦のマスには攻撃できないので除く
+        for (const pos of submarinePoses) {
+            attackableCellGrid[pos.row][pos.col] = false;
+        }
+        return attackableCellGrid;
+    }
+
+    static calcMovableCellGrid(fromPos: CellPos, nrow: number, ncol: number, fellowSubmarinePoses: CellPos[]): boolean[][] {
+        const movableCellGrid = newDim2Array(nrow, ncol, false);
+        const directions = [0, 1, 0, -1];
+
+        for (let i = 0; i < directions.length; ++i) {
+            for (const k of [1, 2]) {
+                const dy = directions[i] * k;
+                const dx = directions[i ^ 1] * k; // i xor 1
+                const row = fromPos.row + dy;
+                const col = fromPos.col + dx;
+                if (row < 0 || row >= nrow || col < 0 || col >= ncol) continue;
+                movableCellGrid[row][col] = true;
+            }
+        }
+
+        for (const pos of fellowSubmarinePoses) {
+            movableCellGrid[pos.row][pos.col] = false;
+        }
+
+        return movableCellGrid;
+    }
+
     setup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
         CANVAS_WRAPPER_ELEM.appendChild(this.attackButton);
@@ -929,48 +968,6 @@ class BattleScene implements Scene, CellEventHandler {
         this.gridView.draw(ctx);
         this.submarineManager.draw(ctx);
         this._drawTitle(ctx);
-    }
-
-    private _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.whiteGray;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    }
-
-    private _drawTitle(ctx: CanvasRenderingContext2D): void {
-        if (this.submarineManager.isTeamAWinner()) {
-            drawUnderlinedText(ctx, "勝者: " + (TEAM_A_NAME_INPUT.value || "TeamA"),
-                this.sceneManager.canvas.width / 2,
-                40,
-                28,
-                MyColor.teamA_red);
-            return;
-        } else if (this.submarineManager.isTeamBWinner()) {
-            drawUnderlinedText(ctx, "勝者: " + (TEAM_B_NAME_INPUT.value || "TeamB"),
-                this.sceneManager.canvas.width / 2,
-                40,
-                28,
-                MyColor.teamB_blue);
-            return;
-        }
-
-        let teamName;
-        let underlineColor: string;
-
-        if (this.currentTurn == TeamID.TEAM_A) {
-            teamName = TEAM_A_NAME_INPUT.value || "TeamA";
-            underlineColor = MyColor.teamA_red;
-        } else {
-            teamName = TEAM_B_NAME_INPUT.value || "TeamB";
-            underlineColor = MyColor.teamB_blue;
-        }
-
-        const title = "#" + zeroPadding(this.currentTurnCount, 2) + ":  " + teamName + " のターン";
-
-        drawUnderlinedText(ctx, title,
-            this.sceneManager.canvas.width / 2,
-            40,
-            28,
-            underlineColor);
     }
 
     incrementTurn(): void {
@@ -1050,7 +1047,7 @@ class BattleScene implements Scene, CellEventHandler {
             }
             case BattleSceneState.MOVE_ACTOR_SELECT:
                 break;
-            case BattleSceneState.MOVE_DEST_SELECT:{
+            case BattleSceneState.MOVE_DEST_SELECT: {
                 this.submarineManager.moveFromTo(this.moveActor, this.moveDest, this.currentTurn);
                 this.incrementTurn();
                 this.enterOpTypeSelectState();
@@ -1139,26 +1136,6 @@ class BattleScene implements Scene, CellEventHandler {
         }
     }
 
-    static calcAttackableCellGrid(submarinePoses: CellPos[], nrow: number, ncol: number): boolean[][] {
-        const attackableCellGrid = newDim2Array(nrow, ncol, false);
-
-        // 各潜水艦の周囲1マスを true にしておく
-        for (const pos of submarinePoses) {
-            for (let row = pos.row - 1; row <= pos.row + 1; ++row) {
-                for (let col = pos.col - 1; col <= pos.col + 1; ++col) {
-                    if (row < 0 || row >= nrow || col < 0 || col >= ncol) continue;
-                    attackableCellGrid[row][col] = true;
-                }
-            }
-        }
-
-        // 自軍の潜水艦のマスには攻撃できないので除く
-        for (const pos of submarinePoses) {
-            attackableCellGrid[pos.row][pos.col] = false;
-        }
-        return attackableCellGrid;
-    }
-
     highlightMoveActorCandidateCells(): void {
         // 一旦すべてクリック禁止にする
         this.resetCellsStyle();
@@ -1209,26 +1186,46 @@ class BattleScene implements Scene, CellEventHandler {
         }
     }
 
-    static calcMovableCellGrid(fromPos: CellPos, nrow: number, ncol: number, fellowSubmarinePoses: CellPos[]): boolean[][] {
-        const movableCellGrid = newDim2Array(nrow, ncol, false);
-        const directions = [0, 1, 0, -1];
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.whiteGray;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
 
-        for (let i = 0; i < directions.length; ++i) {
-            for (const k of [1, 2]) {
-                const dy = directions[i] * k;
-                const dx = directions[i ^ 1] * k; // i xor 1
-                const row = fromPos.row + dy;
-                const col = fromPos.col + dx;
-                if (row < 0 || row >= nrow || col < 0 || col >= ncol) continue;
-                movableCellGrid[row][col] = true;
-            }
+    private _drawTitle(ctx: CanvasRenderingContext2D): void {
+        if (this.submarineManager.isTeamAWinner()) {
+            drawUnderlinedText(ctx, "勝者: " + (TEAM_A_NAME_INPUT.value || "TeamA"),
+                this.sceneManager.canvas.width / 2,
+                40,
+                28,
+                MyColor.teamA_red);
+            return;
+        } else if (this.submarineManager.isTeamBWinner()) {
+            drawUnderlinedText(ctx, "勝者: " + (TEAM_B_NAME_INPUT.value || "TeamB"),
+                this.sceneManager.canvas.width / 2,
+                40,
+                28,
+                MyColor.teamB_blue);
+            return;
         }
 
-        for (const pos of fellowSubmarinePoses) {
-            movableCellGrid[pos.row][pos.col] = false;
+        let teamName;
+        let underlineColor: string;
+
+        if (this.currentTurn == TeamID.TEAM_A) {
+            teamName = TEAM_A_NAME_INPUT.value || "TeamA";
+            underlineColor = MyColor.teamA_red;
+        } else {
+            teamName = TEAM_B_NAME_INPUT.value || "TeamB";
+            underlineColor = MyColor.teamB_blue;
         }
 
-        return movableCellGrid;
+        const title = "#" + zeroPadding(this.currentTurnCount, 2) + ":  " + teamName + " のターン";
+
+        drawUnderlinedText(ctx, title,
+            this.sceneManager.canvas.width / 2,
+            40,
+            28,
+            underlineColor);
     }
 }
 
