@@ -239,12 +239,6 @@ class Visualizer implements SceneManager {
 }
 
 
-class SceneCommonData {
-    teamAGrid: number[][];
-    teamBGrid: number[][];
-}
-
-
 interface CellPos {
     row: number;
     col: number;
