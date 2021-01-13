@@ -75,6 +75,14 @@ abstract class Geometry {
 }
 
 
+abstract class Easing {
+    static easeOutCubic(x: number): number {
+        const t = 1 - x;
+        return 1 - t * t * t;
+    }
+}
+
+
 abstract class MyColor {
     static readonly whiteGray = '#eee';
     static readonly lightGray = '#999';
