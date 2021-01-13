@@ -75,6 +75,14 @@ abstract class Geometry {
 }
 
 
+abstract class Easing {
+    static easeOutCubic(x: number): number {
+        const t = 1 - x;
+        return 1 - t * t * t;
+    }
+}
+
+
 abstract class MyColor {
     static readonly whiteGray = '#eee';
     static readonly lightGray = '#999';
@@ -84,6 +92,96 @@ abstract class MyColor {
     static readonly clickableGreen = '#c3ffc3';
     static readonly selectedClickableGreen = '#78ff5f';
     static readonly moveActorCyan = '#afeeff';
+}
+
+
+interface MyAnimation {
+    update: (timestamp: number) => void;
+    hasAnimFinished: () => boolean;
+    onAnimFinish: () => void;
+}
+
+
+class TimeRatioAnimation implements MyAnimation {
+    readonly lengthTime: number;
+    readonly delay: number;
+    readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
+    readonly onAnimFinish: () => void;
+
+    private _timestampAtRegistered = -1;
+    private _timestampAtAnimStarted = -1;
+    private _hasAnimFinished = false;
+
+    // 時間の単位は全てミリ秒
+    constructor(lengthTime: number, delay: number, task: (ratio: number) => boolean, onAnimFinish: () => void) {
+        this.lengthTime = lengthTime;
+        this.delay = delay;
+        this.task = task;
+        this.onAnimFinish = onAnimFinish;
+    }
+
+    hasAnimFinished(): boolean {
+        return this._hasAnimFinished;
+    }
+
+    start(): void {
+        AnimationExecutor.registerAnimation(this);
+    }
+
+    update(timestamp: number): void {
+
+        if (this.hasAnimFinished()) {
+            return;
+        }
+
+        if (this._timestampAtRegistered == -1) {
+            this._timestampAtRegistered = timestamp;
+        }
+        const elapsedTimeFromRegistered = timestamp - this._timestampAtRegistered;
+        if (elapsedTimeFromRegistered < this.delay) {
+            return;
+        }
+
+        if (this._timestampAtAnimStarted == -1) {
+            this._timestampAtAnimStarted = timestamp;
+        }
+        const elapsedTimeFromAnimStarted = timestamp - this._timestampAtAnimStarted;
+        if (elapsedTimeFromAnimStarted > this.lengthTime) {
+            this._hasAnimFinished = true;
+            return;
+        }
+
+        const ratio = elapsedTimeFromAnimStarted / this.lengthTime;
+        const isContinue = this.task(ratio);
+        this._hasAnimFinished ||= !isContinue;
+    }
+}
+
+
+abstract class AnimationExecutor {
+    private static _animationList: MyAnimation[] = [];
+
+    static registerAnimation(anim: MyAnimation): void {
+        anim.update = anim.update.bind(anim);
+        anim.hasAnimFinished = anim.hasAnimFinished.bind(anim);
+        this._animationList.push(anim);
+    }
+
+    static update(timestamp: number): void {
+        let i = 0;
+
+        while (i < this._animationList.length) {
+            const anim = this._animationList[i];
+            anim.update(timestamp);
+
+            if (anim.hasAnimFinished()) {
+                anim.onAnimFinish();
+                this._animationList.splice(i, 1);
+            } else {
+                ++i;
+            }
+        }
+    }
 }
 
 
@@ -121,6 +219,7 @@ class Visualizer implements SceneManager {
         this.curScene = firstScene;
         this.curScene.setup();
         const animationLoop = (timestamp: number): void => {
+            AnimationExecutor.update(timestamp);
             this.curScene.update(timestamp);
             this.ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             this.curScene.draw(this.ctx);
@@ -137,15 +236,14 @@ class Visualizer implements SceneManager {
 }
 
 
-class SceneCommonData {
-    teamAGrid: number[][];
-    teamBGrid: number[][];
-}
-
-
 interface CellPos {
     row: number;
     col: number;
+}
+
+
+function isSameCellPos(p1: CellPos, p2: CellPos): boolean {
+    return p1.row == p2.row && p1.col == p2.col;
 }
 
 
@@ -311,8 +409,7 @@ class GridView {
     }
 
     getCellAt(pos: CellPos): Cell {
-        const cell = this.cells.find(c => c.row == pos.row && c.col == pos.col);
-        return cell;
+        return this.cells.find(c => c.row == pos.row && c.col == pos.col);
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
@@ -371,7 +468,6 @@ class GridView {
 
         for (let col = 0; col < this.ncol; ++col) {
             const text = String.fromCharCode(charCode1 + col);
-            const rect = Geometry.textRectBounding(ctx, text);
             const x = this.getCellPosition(0, col).x + (this.cellWidth / 2);
             const y = this.topY - 5;
             ctx.fillText(text, x, y);
@@ -432,6 +528,36 @@ class SubmarineManager {
     }
 
     // 新しく潜水艦を追加する。
+
+    static calcSubmarineDrawnPosConstrainedToCell(
+        pos: CellPos,
+        teamID: TeamID,
+        gridView: GridView,
+        submarineWidth: number,
+        submarineHeight: number,
+        isOpponentAtSameCell: boolean
+    ): { x: number, y: number } {
+        const cellPos = gridView.getCellPosition(pos.row, pos.col);
+
+        if (isOpponentAtSameCell) {
+            const cx = Geometry.centerPos(submarineWidth, gridView.cellWidth) + cellPos.x;
+            const cy = Geometry.centerPos(submarineHeight, gridView.cellHeight) + cellPos.y;
+            const dx = gridView.cellWidth * 0.14;
+            const dy = gridView.cellHeight * 0.22;
+            const offsetY = gridView.cellHeight * 0.07;
+
+            if (teamID == TeamID.TEAM_A) {
+                return {x: cx - dx, y: cy + dy + offsetY};
+            } else {
+                return {x: cx + dx, y: cy - dy + offsetY};
+            }
+        } else {
+            const x = Geometry.centerPos(submarineWidth, gridView.cellWidth) + cellPos.x;
+            const y = Geometry.centerPos(submarineHeight, gridView.cellHeight) + cellPos.y;
+            return {x: x, y: y};
+        }
+    }
+
     // 指定マスに既に潜水艦が存在しても追加する。
     newSubmarineAt(pos: CellPos, teamID: TeamID): void {
         const s = new Submarine(pos.row, pos.col, 3);
@@ -452,12 +578,6 @@ class SubmarineManager {
         }
     }
 
-    decrementHPAt(pos: CellPos, teamID: TeamID): void {
-        const submarine = this.getSubmarineAt(pos, teamID);
-        if (submarine == null) return;
-        submarine.hp -= 1;
-    }
-
     decrementHPAndAutoDeleteAt(pos: CellPos, teamID: TeamID): void {
         const submarine = this.getSubmarineAt(pos, teamID);
         if (submarine == null) return;
@@ -467,12 +587,63 @@ class SubmarineManager {
         }
     }
 
+    moveFromTo(from: CellPos, to: CellPos, teamID: TeamID, animTimeLength: number, onAnimFinish: () => void): void {
+        const actor = this.getSubmarineAt(from, teamID);
+        if (actor == null) return;
+        actor.row = to.row;
+        actor.col = to.col;
 
-    moveFromTo(from: CellPos, to: CellPos, teamID: TeamID): void {
-        const submarine = this.getSubmarineAt(from, teamID);
-        if (submarine == null) return;
-        submarine.row = to.row;
-        submarine.col = to.col;
+        const opponent = opponentTeamID(teamID);
+
+        const moveInfos = [] as { submarine: Submarine, fromX: number, fromY: number, toX: number, toY: number }[];
+
+        const gridView = this.gridView;
+        const submarineWidth = this.submarineImageWidth;
+        const submarineHeight = this.submarineImageHeight;
+
+        function pushMoveInfo(submarine: Submarine, to: CellPos, teamID: TeamID, isOpponentAtSameCell: boolean): void {
+            const fromX = submarine.x;
+            const fromY = submarine.y;
+            const {x: toX, y: toY} = SubmarineManager.calcSubmarineDrawnPosConstrainedToCell(
+                to, teamID, gridView,
+                submarineWidth, submarineHeight,
+                isOpponentAtSameCell);
+            moveInfos.push({submarine: submarine, fromX: fromX, fromY: fromY, toX: toX, toY: toY});
+            submarine.isConstrainedToCell = false;
+        }
+
+        if (this.isExistsAt(from, opponent)) {
+            const submarine = this.getSubmarineAt(from, opponent);
+            pushMoveInfo(submarine, submarine, opponent, isSameCellPos(submarine, actor));
+        }
+        if (this.isExistsAt(to, opponent)) {
+            const submarine = this.getSubmarineAt(to, opponent);
+            pushMoveInfo(submarine, submarine, opponent, isSameCellPos(submarine, actor));
+        }
+
+        pushMoveInfo(actor, to, teamID, this.isExistsAt(to, opponent));
+
+        function animTask(ratio: number): boolean {
+            const k = Easing.easeOutCubic(ratio);
+
+            for (const moveInfo of moveInfos) {
+                const x = moveInfo.fromX + (moveInfo.toX - moveInfo.fromX) * k;
+                const y = moveInfo.fromY + (moveInfo.toY - moveInfo.fromY) * k;
+                moveInfo.submarine.x = x;
+                moveInfo.submarine.y = y;
+            }
+            return true;
+        }
+
+        function onAnimFinishWrap(): void {
+            for (const moveInfo of moveInfos) {
+                moveInfo.submarine.isConstrainedToCell = true;
+            }
+            onAnimFinish()
+        }
+
+        new TimeRatioAnimation(animTimeLength, 100, animTask, onAnimFinishWrap)
+            .start();
     }
 
     isTeamAWinner(): boolean {
@@ -490,7 +661,16 @@ class SubmarineManager {
         for (const teamID of [TeamID.TEAM_A, TeamID.TEAM_B]) {
             const submarineArray = this.getSubmarineArrayOfTeam(teamID);
             for (let submarine of submarineArray) {
-                const drawnPos = this.calcSubmarineDrawnPos(submarine, teamID);
+                if (!submarine.isConstrainedToCell) {
+                    continue;
+                }
+
+                const drawnPos = SubmarineManager.calcSubmarineDrawnPosConstrainedToCell(
+                    submarine, teamID,
+                    this.gridView,
+                    this.submarineImageWidth, this.submarineImageHeight,
+                    this.isExistsAt(submarine, opponentTeamID(teamID)));
+
                 submarine.x = drawnPos.x;
                 submarine.y = drawnPos.y;
             }
@@ -513,7 +693,6 @@ class SubmarineManager {
                 ctx.textAlign = "center";
                 ctx.textBaseline = "bottom";
                 const hpText = "♥".repeat(submarine.hp) + "♡".repeat(3 - submarine.hp);
-                const rect = Geometry.textRectBounding(ctx, hpText);
                 ctx.fillText(hpText,
                     submarine.x + this.submarineImageWidth / 2,
                     submarine.y);
@@ -524,35 +703,6 @@ class SubmarineManager {
 
     getSubmarineImage(teamID: TeamID): HTMLImageElement {
         return (teamID == TeamID.TEAM_A ? this.teamASubmarineImage : this.teamBSubmarineImage);
-    }
-
-    calcSubmarineDrawnPos(submarine: Submarine, teamID: TeamID): { x: number, y: number } {
-        if (!submarine.isConstrainedToCell) {
-            return {x: submarine.x, y: submarine.y};
-        }
-
-        const isOpponentAtSameCell = this.getSubmarineAt(submarine, opponentTeamID(teamID)) != null;
-        const w = this.submarineImageWidth;
-        const h = this.submarineImageHeight;
-        const cellPos = this.gridView.getCellPosition(submarine.row, submarine.col);
-
-        if (isOpponentAtSameCell) {
-            const cx = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
-            const cy = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
-            const dx = this.gridView.cellWidth * 0.14;
-            const dy = this.gridView.cellHeight * 0.22;
-            const offsetY = this.gridView.cellHeight * 0.07;
-
-            if (teamID == TeamID.TEAM_A) {
-                return {x: cx - dx, y: cy + dy + offsetY};
-            } else {
-                return {x: cx + dx, y: cy - dy + offsetY};
-            }
-        } else {
-            const x = Geometry.centerPos(w, this.gridView.cellWidth) + cellPos.x;
-            const y = Geometry.centerPos(h, this.gridView.cellHeight) + cellPos.y;
-            return {x: x, y: y};
-        }
     }
 
     getSubmarineArrayOfTeam(teamID: TeamID): Submarine[] {
@@ -719,7 +869,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        this._drawBack(ctx);
+        InitialPositionInputScene._drawBack(ctx);
         this.gridView.draw(ctx);
         if (this.currentTeam == TeamID.TEAM_A) {
             this.teamASubmarineManager.draw(ctx);
@@ -754,7 +904,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     onMouseLeaveCell(cell: Cell): void {
     }
 
-    private _drawBack(ctx: CanvasRenderingContext2D): void {
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
@@ -826,6 +976,7 @@ enum BattleSceneState {
     ATTACK_DEST_SELECT,
     MOVE_ACTOR_SELECT,
     MOVE_DEST_SELECT,
+    ANIMATING,
     BATTLE_FINISHED,
 }
 
@@ -964,7 +1115,7 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        this._drawBack(ctx);
+        BattleScene._drawBack(ctx);
         this.gridView.draw(ctx);
         this.submarineManager.draw(ctx);
         this._drawTitle(ctx);
@@ -1048,9 +1199,15 @@ class BattleScene implements Scene, CellEventHandler {
             case BattleSceneState.MOVE_ACTOR_SELECT:
                 break;
             case BattleSceneState.MOVE_DEST_SELECT: {
-                this.submarineManager.moveFromTo(this.moveActor, this.moveDest, this.currentTurn);
-                this.incrementTurn();
-                this.enterOpTypeSelectState();
+                const self = this;
+                const onAnimFinish = () => {
+                    self.incrementTurn();
+                    self.enterOpTypeSelectState();
+                }
+                this.submarineManager.moveFromTo(this.moveActor, this.moveDest, this.currentTurn, 500, onAnimFinish);
+                this.enterAnimatingState();
+                // this.incrementTurn();
+                // this.enterOpTypeSelectState();
                 break;
             }
         }
@@ -1085,6 +1242,14 @@ class BattleScene implements Scene, CellEventHandler {
         this.applyButton.disabled = true;
         this.highlightMoveDestCandidateCells();
         GUIDE_MESSAGE_ELEM.innerText = "移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。";
+    }
+
+    enterAnimatingState(): void {
+        this.currentState = BattleSceneState.ANIMATING;
+        this.setButtonDisplayStyle(false, false, false, false);
+        this.applyButton.disabled = true;
+        this.resetCellsStyle();
+        GUIDE_MESSAGE_ELEM.innerText = "";
     }
 
     enterBattleFinishedState(): void {
@@ -1186,7 +1351,7 @@ class BattleScene implements Scene, CellEventHandler {
         }
     }
 
-    private _drawBack(ctx: CanvasRenderingContext2D): void {
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
