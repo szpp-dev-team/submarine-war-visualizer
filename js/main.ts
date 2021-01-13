@@ -869,7 +869,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        this._drawBack(ctx);
+        InitialPositionInputScene._drawBack(ctx);
         this.gridView.draw(ctx);
         if (this.currentTeam == TeamID.TEAM_A) {
             this.teamASubmarineManager.draw(ctx);
@@ -904,7 +904,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     onMouseLeaveCell(cell: Cell): void {
     }
 
-    private _drawBack(ctx: CanvasRenderingContext2D): void {
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
@@ -1115,7 +1115,7 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        this._drawBack(ctx);
+        BattleScene._drawBack(ctx);
         this.gridView.draw(ctx);
         this.submarineManager.draw(ctx);
         this._drawTitle(ctx);
@@ -1351,7 +1351,7 @@ class BattleScene implements Scene, CellEventHandler {
         }
     }
 
-    private _drawBack(ctx: CanvasRenderingContext2D): void {
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
         ctx.fillStyle = MyColor.whiteGray;
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
