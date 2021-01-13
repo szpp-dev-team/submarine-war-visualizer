@@ -11,6 +11,10 @@ input[type="text"] {
     padding: 5px;
 }
 
+input:focus {
+    outline: none;
+}
+
 /* -------------------------------------------------------------------------------
   Header
 ------------------------------------------------------------------------------- */
@@ -39,10 +43,19 @@ header > h1 {
 #team-name-inputs input {
     font-size: 20px;
     width: 16em;
+    outline: none;
+}
+
+#teamA-name {
+    text-align: left;
+    border: none;
+    border-bottom: 3px solid #CB2400;
 }
 
 #teamB-name {
     text-align: right;
+    border: none;
+    border-bottom: 3px solid #236CCA;
 }
 
 /* -------------------------------------------------------------------------------
