@@ -838,7 +838,7 @@ class SubmarineManager {
                 submarine.visible = true;
                 submarine.hp -= 1;
                 if (submarine.hp <= 0) {
-                    new TimeRatioTransition(500, 100,
+                    new TimeRatioTransition(1000, 100,
                         (ratio: number): boolean => {
                             submarine.opacity = 1.0 - ratio;
                             return true;
@@ -853,7 +853,7 @@ class SubmarineManager {
             }
 
             submarine.opacity = 1.0;
-            new BlinkTransition(submarine, 1000, 100, 200, onAnimFinish_wrap).start();
+            new BlinkTransition(submarine, 1200, 100, 200, onAnimFinish_wrap).start();
         }
     }
 
