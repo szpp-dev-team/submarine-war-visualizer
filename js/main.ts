@@ -1538,6 +1538,27 @@ class BattleScene implements Scene, CellEventHandler {
         return movableCellGrid;
     }
 
+    static judgeAttackResult(attackedPos: CellPos, submarines: Submarine[]): AttackResponse {
+        function getSubmarineAt(p: CellPos): Submarine | null {
+            return submarines.find(submarine => isSameCellPos(submarine, p));
+        }
+
+        const attackedSubmarine = getSubmarineAt(attackedPos);
+        if (attackedSubmarine != null) {
+            return attackedSubmarine.hp == 1 ? AttackResponse.DEAD : AttackResponse.HIT;
+        }
+
+        for (let row = attackedPos.row - 1; row <= attackedPos.row + 1; ++row) {
+            for (let col = attackedPos.col - 1; col <= attackedPos.col + 1; ++col) {
+                if (row < 0 || col < 0 || row >= N || col >= N) continue;
+                if (getSubmarineAt({row: row, col: col}) != null) {
+                    return AttackResponse.NEAR;
+                }
+            }
+        }
+        return AttackResponse.MISS;
+    }
+
     setup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
         CANVAS_WRAPPER_ELEM.appendChild(this.attackButton);
@@ -1675,9 +1696,10 @@ class BattleScene implements Scene, CellEventHandler {
                 const animFont = "bold 28px sans-serif";
                 const animTimeLength = 800;
                 const animDelay = 400;
-                const doNothing = () => {};
+                const doNothing = () => {
+                };
 
-                    switch (attackResponse) {
+                switch (attackResponse) {
                     case AttackResponse.HIT:
                     case AttackResponse.DEAD:
                         new FloatUpTextAnimation(
@@ -1731,27 +1753,6 @@ class BattleScene implements Scene, CellEventHandler {
                 break;
             }
         }
-    }
-
-    static judgeAttackResult(attackedPos: CellPos, submarines: Submarine[]): AttackResponse {
-        function getSubmarineAt(p: CellPos): Submarine | null {
-            return submarines.find(submarine => isSameCellPos(submarine, p));
-        }
-
-        const attackedSubmarine = getSubmarineAt(attackedPos);
-        if (attackedSubmarine != null) {
-            return attackedSubmarine.hp == 1 ? AttackResponse.DEAD : AttackResponse.HIT;
-        }
-
-        for (let row = attackedPos.row - 1; row <= attackedPos.row + 1; ++row) {
-            for (let col = attackedPos.col - 1; col <= attackedPos.col + 1; ++col) {
-                if (row < 0 || col < 0 || row >= N || col >= N) continue;
-                if (getSubmarineAt({row: row, col: col}) != null) {
-                    return AttackResponse.NEAR;
-                }
-            }
-        }
-        return AttackResponse.MISS;
     }
 
     enterOpTypeSelectState(): void {
