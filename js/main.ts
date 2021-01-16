@@ -1950,7 +1950,7 @@ class BattleScene implements Scene, CellEventHandler {
             winnerTeamName = (TEAM_B_NAME_INPUT.value || "TeamB");
             this.submarineManager.setSubmarinesOpacity(TeamID.TEAM_B, 1.0);
         }
-        setGuideMessage("チーム " + winnerTeamName + " の皆さんおめでとうございます🎉🎉🎉", "forestgreen");
+        setGuideMessage("チーム " + winnerTeamName + " の皆さんおめでとうございます 🎉🎉🎉", "forestgreen");
     }
 
     setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
