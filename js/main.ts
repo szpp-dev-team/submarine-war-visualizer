@@ -8,6 +8,12 @@ const GUIDE_MESSAGE_ELEM = document.getElementById('guide-message') as HTMLDivEl
 const CANVAS_WRAPPER_ELEM = document.getElementById('canvas-wrapper') as HTMLElement;
 
 
+function setGuideMessage(message: string, color: string): void {
+    GUIDE_MESSAGE_ELEM.style.color = color;
+    GUIDE_MESSAGE_ELEM.innerText = message;
+}
+
+
 function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
     let ret = new Array<Array<T>>(row);
     for (let i = 0; i < row; ++i) {
@@ -765,6 +771,10 @@ class SubmarineManager {
             .start();
     }
 
+    countSubmarine(teamID: TeamID): number {
+        return this.getSubmarineArrayOfTeam(teamID).length;
+    }
+
     isTeamAWinner(): boolean {
         return this.teamASubmarines.length > 0 && this.teamBSubmarines.length <= 0;
     }
@@ -977,7 +987,8 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             }
             this.teamAFirstTurnRadioButton = createRadioButton('first-turn-team');
             this.teamBFirstTurnRadioButton = createRadioButton('first-turn-team');
-            this.teamAFirstTurnRadioButton.checked = true;
+            this.teamAFirstTurnRadioButton.onchange = this._onFirstTurnTeamRadioButtonChange.bind(this);
+            this.teamBFirstTurnRadioButton.onchange = this._onFirstTurnTeamRadioButtonChange.bind(this);
 
             this.teamAFirstTurnLabel = createLabelWithinRadioButton('TeamA先攻', this.teamAFirstTurnRadioButton, 24);
             this.teamBFirstTurnLabel = createLabelWithinRadioButton('TeamB先攻', this.teamBFirstTurnRadioButton, 24);
@@ -993,8 +1004,17 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
+    static setDefaultGuideMessage() {
+        setGuideMessage("初期配置を設定してください。各チームにつき ちょうど4隻 配置する必要があります。\nセルをクリックして潜水艦の有無を切り替えられます。", "");
+    }
+
+    static setSubmarineCountAllSatisfiedGuideMessage() {
+        setGuideMessage("両チームともに配置がちょうど4隻になりました。\n先攻のチームが正しいことを確認してください。[Start Battle] ボタンで対戦を開始します。", "forestgreen");
+    }
+
     setup(): void {
-        GUIDE_MESSAGE_ELEM.innerText = "初期配置を設定してください。\nセルをクリックして潜水艦の有無を切り替えられます。";
+        InitialPositionInputScene.setDefaultGuideMessage();
+        this.battleButton.disabled = true;
         this._mouseEventSetup();
 
         CANVAS_WRAPPER_ELEM.appendChild(this.teamAShowButton);
@@ -1010,7 +1030,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     tearDown(): void {
-        GUIDE_MESSAGE_ELEM.innerText = "";
+        setGuideMessage("", "");
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
 
         CANVAS_WRAPPER_ELEM.removeChild(this.teamAShowButton);
@@ -1053,8 +1073,30 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             existence[row][col] = false;
             submarineManager.deleteSubmarineAt(cell, this.currentTeam);
         } else {
+            if (submarineManager.countSubmarine(this.currentTeam) >= 4) {
+                setGuideMessage("4隻以上の配置は許されません。\n潜水艦のあるマスをクリックすることでその潜水艦を消すことができます。", "red");
+                return;
+            }
+
             existence[row][col] = true;
             submarineManager.newSubmarineAt(cell, this.currentTeam);
+        }
+
+        const isTeamAOK = this.teamASubmarineManager.countSubmarine(TeamID.TEAM_A) == 4;
+        const isTeamBOK = this.teamBSubmarineManager.countSubmarine(TeamID.TEAM_B) == 4;
+
+        if (isTeamAOK && isTeamBOK) {
+            this.battleButton.disabled = !this._canBattleStart();
+            InitialPositionInputScene.setSubmarineCountAllSatisfiedGuideMessage();
+        } else {
+            this.battleButton.disabled = true;
+            if (isTeamAOK && this.currentTeam == TeamID.TEAM_A) {
+                setGuideMessage("TeamAの配置がちょうど4隻になりました。\n左上の [TeamBの配置へ] ボタンを押してTeamBの初期配置も設定してください。", "");
+            } else if (isTeamBOK && this.currentTeam == TeamID.TEAM_B) {
+                setGuideMessage("TeamBの配置がちょうど4隻になりました。\n左上の [TeamAの配置へ] ボタンを押してTeamAの初期配置も設定してください。", "");
+            } else {
+                InitialPositionInputScene.setDefaultGuideMessage();
+            }
         }
     }
 
@@ -1085,28 +1127,47 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             underlineColor);
     }
 
+    private _onFirstTurnTeamRadioButtonChange() {
+        this.battleButton.disabled = !this._canBattleStart();
+    }
+
     private _mouseEventSetup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
     }
 
+    private _onAnyTeamShowButtonClicked(): void {
+        if (this._isTeamAPlacementOK() && this._isTeamBPlacementOK()) {
+            InitialPositionInputScene.setSubmarineCountAllSatisfiedGuideMessage();
+        } else {
+            InitialPositionInputScene.setDefaultGuideMessage();
+        }
+    }
+
     private _onTeamAShowButtonClicked(): void {
         this.currentTeam = TeamID.TEAM_A;
+        this._onAnyTeamShowButtonClicked();
     }
 
     private _onTeamBShowButtonClicked(): void {
         this.currentTeam = TeamID.TEAM_B;
+        this._onAnyTeamShowButtonClicked();
     }
 
     private _onBattleButtonClicked(): void {
-        try {
-            this._validatePlacement();
-        } catch (e) {
-            GUIDE_MESSAGE_ELEM.style.color = 'red';
-            GUIDE_MESSAGE_ELEM.innerText = e.message;
+        if (!this._isTeamAPlacementOK()) {
+            setGuideMessage("TeamAの配置が不正です。 ちょうど4隻配置してください。", "red");
             return;
         }
-        GUIDE_MESSAGE_ELEM.innerText = "";
-        const firstTurnTeam = this.teamAFirstTurnRadioButton.checked ? TeamID.TEAM_A : TeamID.TEAM_B;
+        if (!this._isTeamBPlacementOK()) {
+            setGuideMessage("TeamBの配置が不正です。 ちょうど4隻配置してください。", "red");
+            return;
+        }
+        if (!this._isAnyFirstTurnTeamSelected()) {
+            setGuideMessage("先攻のチームを選択してください。", "red");
+            return;
+        }
+
+        const firstTurnTeam = this._getSelectedFirstTurnTeam();
         const nextScene = new BattleScene(this.sceneManager,
             this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A),
             this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B),
@@ -1114,15 +1175,33 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this.sceneManager.changeScene(nextScene);
     }
 
-    private _validatePlacement(): void {
-        if (this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A).length != 4) {
-            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
-            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
+    private _canBattleStart(): boolean {
+        return (
+            this._isTeamAPlacementOK() &&
+            this._isTeamBPlacementOK() &&
+            this._isAnyFirstTurnTeamSelected());
+    }
+
+    private _isTeamAPlacementOK(): boolean {
+        return this.teamASubmarineManager.countSubmarine(TeamID.TEAM_A) == 4;
+    }
+
+    private _isTeamBPlacementOK(): boolean {
+        return this.teamBSubmarineManager.countSubmarine(TeamID.TEAM_B) == 4;
+    }
+
+    private _isAnyFirstTurnTeamSelected(): boolean {
+        return this._getSelectedFirstTurnTeam() != null;
+    }
+
+    private _getSelectedFirstTurnTeam(): TeamID | null {
+        if (this.teamAFirstTurnRadioButton.checked) {
+            return TeamID.TEAM_A;
         }
-        if (this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B).length != 4) {
-            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
-            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
+        if (this.teamBFirstTurnRadioButton.checked) {
+            return TeamID.TEAM_B;
         }
+        return null;
     }
 }
 
@@ -1386,7 +1465,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
         this.resetCellsStyle();
-        GUIDE_MESSAGE_ELEM.innerText = "攻撃または移動のどちらかのボタンを押してください。";
+        setGuideMessage("攻撃または移動のどちらかのボタンを押してください。", "");
     }
 
     enterAttackDestSelectState(): void {
@@ -1394,7 +1473,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightAttackableCells();
-        GUIDE_MESSAGE_ELEM.innerText = "攻撃先のマスをクリックして Apply ボタンを押してください。";
+        setGuideMessage("攻撃先のマスをクリックして Apply ボタンを押してください。", "");
     }
 
     enterMoveActorSelectState(): void {
@@ -1402,7 +1481,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightMoveActorCandidateCells();
-        GUIDE_MESSAGE_ELEM.innerText = "移動する潜水艦をクリックしてください。";
+        setGuideMessage("移動する潜水艦をクリックしてください。", "");
     }
 
     enterMoveDestSelectState(): void {
@@ -1410,7 +1489,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightMoveDestCandidateCells();
-        GUIDE_MESSAGE_ELEM.innerText = "移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。";
+        setGuideMessage("移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。", "");
     }
 
     enterAnimatingState(): void {
@@ -1418,7 +1497,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(false, false, false, false);
         this.applyButton.disabled = true;
         this.resetCellsStyle();
-        GUIDE_MESSAGE_ELEM.innerText = "";
+        setGuideMessage("", "");
     }
 
     enterBattleFinishedState(): void {
@@ -1433,7 +1512,7 @@ class BattleScene implements Scene, CellEventHandler {
         } else {
             winnerTeamName = (TEAM_B_NAME_INPUT.value || "TeamB");
         }
-        GUIDE_MESSAGE_ELEM.innerText = "チーム " + winnerTeamName + " の皆さんおめでとうございます🎉🎉🎉";
+        setGuideMessage("チーム " + winnerTeamName + " の皆さんおめでとうございます🎉🎉🎉", "forestgreen");
     }
 
     setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
