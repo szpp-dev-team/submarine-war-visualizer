@@ -1945,8 +1945,10 @@ class BattleScene implements Scene, CellEventHandler {
         let winnerTeamName: string;
         if (this.submarineManager.isTeamAWinner()) {
             winnerTeamName = (TEAM_A_NAME_INPUT.value || "TeamA");
+            this.submarineManager.setSubmarinesOpacity(TeamID.TEAM_A, 1.0);
         } else {
             winnerTeamName = (TEAM_B_NAME_INPUT.value || "TeamB");
+            this.submarineManager.setSubmarinesOpacity(TeamID.TEAM_B, 1.0);
         }
         setGuideMessage("チーム " + winnerTeamName + " の皆さんおめでとうございます🎉🎉🎉", "forestgreen");
     }
