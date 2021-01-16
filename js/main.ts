@@ -1434,6 +1434,8 @@ class BattleScene implements Scene, CellEventHandler {
     readonly goBackButton: HTMLButtonElement;
     readonly applyButton: HTMLButtonElement;
 
+    readonly foregroundAnimations = new AnimationExecutor();
+
     currentTurnCount: number = 1;
     currentTurn: TeamID;
     currentState: BattleSceneState;
@@ -1555,6 +1557,7 @@ class BattleScene implements Scene, CellEventHandler {
 
     update(timestamp: number): void {
         this.submarineManager.update();
+        this.foregroundAnimations.update(timestamp);
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
@@ -1562,6 +1565,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.gridView.draw(ctx);
         this.submarineManager.draw(ctx);
         this._drawTitle(ctx);
+        this.foregroundAnimations.draw(ctx);
     }
 
     incrementTurn(): void {
@@ -1660,6 +1664,57 @@ class BattleScene implements Scene, CellEventHandler {
                 }
 
                 this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn), onAnimFinish);
+
+                const opponentSubmarines = this.submarineManager.getSubmarineArrayOfTeam(opponentTeamID(this.currentTurn));
+                const attackResponse = BattleScene.judgeAttackResult(this.attackDestPos, opponentSubmarines);
+                const attackedCellPos = this.gridView.getCellPosition(this.attackDestPos.row, this.attackDestPos.col);
+
+                const animX = attackedCellPos.x + this.gridView.cellWidth / 2;
+                const animY = attackedCellPos.y;
+                const upDistance = this.gridView.cellHeight * 0.3;
+                const animFont = "bold 28px sans-serif";
+                const animTimeLength = 800;
+                const animDelay = 400;
+                const doNothing = () => {};
+
+                    switch (attackResponse) {
+                    case AttackResponse.HIT:
+                    case AttackResponse.DEAD:
+                        new FloatUpTextAnimation(
+                            "Hit!", animX, animY, upDistance,
+                            "blue", animFont,
+                            animTimeLength, animDelay,
+                            () => {
+                                if (attackResponse == AttackResponse.DEAD) {
+                                    new FloatUpTextAnimation(
+                                        "Dead", animX, animY, upDistance,
+                                        "black", animFont,
+                                        animTimeLength, 900,
+                                        doNothing
+                                    ).start(self.foregroundAnimations);
+                                }
+                            }
+                        ).start(this.foregroundAnimations);
+                        break;
+
+                    case AttackResponse.NEAR:
+                        new FloatUpTextAnimation(
+                            "Near", animX, animY, upDistance,
+                            "darkViolet", animFont,
+                            animTimeLength, animDelay, doNothing
+                        ).start(this.foregroundAnimations);
+                        break;
+
+                    case AttackResponse.MISS:
+                        new FloatUpTextAnimation(
+                            "Miss", animX, animY, upDistance,
+                            "black", animFont,
+                            animTimeLength, animDelay, doNothing
+                        ).start(this.foregroundAnimations);
+                        break;
+
+                }
+
                 this.enterAnimatingState();
                 break;
             }
