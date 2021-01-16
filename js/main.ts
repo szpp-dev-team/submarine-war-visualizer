@@ -28,6 +28,22 @@ function zeroPadding(value: number, digitLength: number): string {
 }
 
 
+function hexToRgb(hex: string): number[] {
+    if (hex.charAt(0) == '#') hex = hex.slice(1);
+    const bigint = parseInt(hex, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+
+    return [r, g, b];
+}
+
+
+function rgbToHex(r: number, g: number, b: number): string {
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+
 function drawUnderlinedText(ctx: CanvasRenderingContext2D,
                             text: string,
                             centerX: number,
@@ -918,6 +934,16 @@ class TitleScene implements Scene {
     }
 }
 
+class OverlayRect {
+    constructor(
+        readonly row: number,
+        readonly col: number,
+        readonly fillColor: string,
+        public opacity: number,
+        public visible: boolean
+    ) {
+    }
+}
 
 class InitialPositionInputScene implements Scene, CellEventHandler {
     readonly sceneManager: SceneManager;
@@ -938,6 +964,8 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     readonly teamBFirstTurnRadioButton: HTMLInputElement;
     readonly teamAFirstTurnLabel: HTMLLabelElement;
     readonly teamBFirstTurnLabel: HTMLLabelElement;
+
+    private overlayRect: OverlayRect | null = null;
 
     constructor(sceneManager: SceneManager) {
         this.sceneManager = sceneManager;
@@ -1058,6 +1086,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     draw(ctx: CanvasRenderingContext2D): void {
         InitialPositionInputScene._drawBack(ctx);
         this.gridView.draw(ctx);
+        this._drawOverlayRect(ctx, this.overlayRect);
         if (this.currentTeam == TeamID.TEAM_A) {
             this.teamASubmarineManager.draw(ctx);
         } else {
@@ -1082,6 +1111,19 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         } else {
             if (submarineManager.countSubmarine(this.currentTeam) >= 4) {
                 setGuideMessage("4隻以上の配置は許されません。\n潜水艦のあるマスをクリックすることでその潜水艦を消すことができます。", "red");
+
+                const fillColor = "#ff9c9c";
+                this.overlayRect = new OverlayRect(cell.row, cell.col, fillColor, 1.0, true);
+                const overlayRect = this.overlayRect;
+
+                new TimeRatioTransition(300, 0,
+                    (ratio: number): boolean => {
+                        overlayRect.opacity = 1.0 - ratio;
+                        return true;
+                    },
+                    (): void => {
+                        overlayRect.visible = false;
+                    }).start();
                 return;
             }
 
@@ -1111,6 +1153,18 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     onMouseLeaveCell(cell: Cell): void {
+    }
+
+    private _drawOverlayRect(ctx: CanvasRenderingContext2D, overlayRect: OverlayRect | null): void {
+        if (overlayRect == null || !overlayRect.visible) {
+            return;
+        }
+        ctx.save();
+        ctx.fillStyle = overlayRect.fillColor;
+        ctx.globalAlpha = overlayRect.opacity;
+        const drawPos = this.gridView.getCellPosition(overlayRect.row, overlayRect.col);
+        ctx.fillRect(drawPos.x, drawPos.y, this.gridView.cellWidth, this.gridView.cellHeight);
+        ctx.restore();
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
