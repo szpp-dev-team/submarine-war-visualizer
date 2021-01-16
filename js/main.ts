@@ -98,9 +98,26 @@ abstract class Geometry {
 
 
 abstract class Easing {
+    static easeInCubic(x: number): number {
+        return x * x * x;
+    }
+
     static easeOutCubic(x: number): number {
         const t = 1 - x;
         return 1 - t * t * t;
+    }
+
+    static easeOutSine(x: number): number {
+        return Math.sin(x * Math.PI / 2);
+    }
+
+    static easeOutQuint(x: number): number {
+        const t = 1 - x;
+        return 1 - t * t * t * t * t;
+    }
+
+    static easeOutQuad(x: number): number {
+        return 1 - (1 - x) * (1 - x);
     }
 }
 
@@ -137,6 +154,10 @@ abstract class MyTransition {
         TransitionExecutor.registerTransition(this);
     }
 
+    hasDelayFinished(): boolean {
+        return this._timestampAtTransitionStarted != -1;
+    }
+
     update(timestamp: number): void {
         if (this.hasAnimFinished()) {
             return;
@@ -161,6 +182,14 @@ abstract class MyTransition {
 
 abstract class MyAnimation extends MyTransition {
     abstract draw(ctx: CanvasRenderingContext2D): void;
+
+    start(animExecutor: AnimationExecutor = null) {
+        if (animExecutor == null) {
+            super.start();
+        } else {
+            animExecutor.registerAnimation(this);
+        }
+    }
 }
 
 
@@ -242,6 +271,58 @@ class SpriteSheetAnimation extends MyAnimation {
 }
 
 
+class FloatUpTextAnimation extends MyAnimation {
+    private readonly x: number;
+    private y: number;
+    private opacity: number;
+    private hasFinished: boolean = false;
+
+    constructor(
+        readonly text: string,
+        readonly startX: number,
+        readonly startY: number,
+        readonly upDistance: number,
+        readonly fillColor: string,
+        readonly font: string,
+        readonly timeLength: number,
+        delay: number,
+        onAnimFinish: () => void,
+    ) {
+        super(delay, onAnimFinish);
+        this.x = startX;
+        this.y = startY;
+        this.opacity = 1.0;
+    }
+
+    handle(elapsedTimeMilli: number): void {
+        if (elapsedTimeMilli > this.timeLength) {
+            this.hasFinished = true;
+            return;
+        }
+        const ratio = Math.min(this.timeLength, elapsedTimeMilli) / this.timeLength;
+        this.y = this.startY - (this.upDistance * Easing.easeOutSine(ratio));
+        this.opacity = 1.0 - Easing.easeInCubic(ratio);
+    }
+
+    hasAnimFinished(): boolean {
+        return this.hasFinished;
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        if (this.hasAnimFinished()) return;
+
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = this.fillColor;
+        ctx.font = this.font;
+        ctx.globalAlpha = this.opacity;
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+
 class BlinkTransition extends MyTransition {
     private _hasAnimFinished: boolean;
 
@@ -292,6 +373,41 @@ abstract class TransitionExecutor {
                 this._transitionList.splice(i, 1);
             } else {
                 ++i;
+            }
+        }
+    }
+}
+
+
+class AnimationExecutor {
+    private readonly _animList: MyAnimation[] = [];
+
+    registerAnimation(anim: MyAnimation): void {
+        anim.update = anim.update.bind(anim);
+        anim.hasAnimFinished = anim.hasAnimFinished.bind(anim);
+        this._animList.push(anim);
+    }
+
+    update(timestamp: number): void {
+        let i = 0;
+
+        while (i < this._animList.length) {
+            const trans = this._animList[i];
+            trans.update(timestamp);
+
+            if (trans.hasAnimFinished()) {
+                trans.onAnimFinish();
+                this._animList.splice(i, 1);
+            } else {
+                ++i;
+            }
+        }
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        for (const anim of this._animList) {
+            if (anim.hasDelayFinished() && !anim.hasAnimFinished()) {
+                anim.draw(ctx);
             }
         }
     }
@@ -703,7 +819,7 @@ class SubmarineManager {
             };
 
             this.explosionAnimation = new SpriteSheetAnimation(this.explosionSpriteSheet,
-                5, 10, 20, 200, (submarine == null ? onAnimFinish : doNothing));
+                5, 10, 20, 200, doNothing);
 
             const cellPos = this.gridView.getCellPosition(pos.row, pos.col);
             const w = this.gridView.cellWidth * 1.5;
@@ -722,7 +838,7 @@ class SubmarineManager {
                 submarine.visible = true;
                 submarine.hp -= 1;
                 if (submarine.hp <= 0) {
-                    new TimeRatioTransition(500, 100,
+                    new TimeRatioTransition(1000, 100,
                         (ratio: number): boolean => {
                             submarine.opacity = 1.0 - ratio;
                             return true;
@@ -737,7 +853,38 @@ class SubmarineManager {
             }
 
             submarine.opacity = 1.0;
-            new BlinkTransition(submarine, 1000, 100, 200, onAnimFinish_wrap).start();
+            new BlinkTransition(submarine, 1200, 100, 200, onAnimFinish_wrap).start();
+        } else {
+            const wavedSubmarines = [] as Submarine[];
+            for (let row = pos.row - 1; row <= pos.row + 1; ++row) {
+                for (let col = pos.col - 1; col <= pos.col + 1; ++col) {
+                    const s = this.getSubmarineAt({row: row, col: col}, teamID);
+                    if (s != null) {
+                        s.isConstrainedToCell = false;
+                        s.opacity = 1.0;
+                        wavedSubmarines.push(s);
+                    }
+                }
+            }
+            const self = this;
+            new TimeRatioTransition(1000, 300,
+                (ratio: number): boolean => {
+                    const theta = ratio * Math.PI * 8;
+                    for (const s of wavedSubmarines) {
+                        const drawnBasePos = SubmarineManager.calcSubmarineDrawnPosConstrainedToCell(
+                            s, teamID, self.gridView, self.submarineImageWidth, self.submarineImageHeight,
+                            self.isExistsAt(s, opponentTeamID(teamID))
+                        );
+                        s.x = drawnBasePos.x + Math.sin(theta) * self.gridView.cellWidth * 0.1;
+                    }
+                    return true;
+                },
+                () => {
+                    for (const s of wavedSubmarines) {
+                        s.isConstrainedToCell = true;
+                    }
+                    onAnimFinish();
+                }).start();
         }
     }
 
@@ -1299,6 +1446,14 @@ enum BattleSceneState {
 }
 
 
+enum AttackResponse {
+    HIT,
+    DEAD,
+    NEAR,
+    MISS
+}
+
+
 class BattleScene implements Scene, CellEventHandler {
     readonly sceneManager: SceneManager;
     readonly gridView: GridView;
@@ -1309,6 +1464,8 @@ class BattleScene implements Scene, CellEventHandler {
     readonly moveButton: HTMLButtonElement;
     readonly goBackButton: HTMLButtonElement;
     readonly applyButton: HTMLButtonElement;
+
+    readonly foregroundAnimations = new AnimationExecutor();
 
     currentTurnCount: number = 1;
     currentTurn: TeamID;
@@ -1412,6 +1569,27 @@ class BattleScene implements Scene, CellEventHandler {
         return movableCellGrid;
     }
 
+    static judgeAttackResult(attackedPos: CellPos, submarines: Submarine[]): AttackResponse {
+        function getSubmarineAt(p: CellPos): Submarine | null {
+            return submarines.find(submarine => isSameCellPos(submarine, p));
+        }
+
+        const attackedSubmarine = getSubmarineAt(attackedPos);
+        if (attackedSubmarine != null) {
+            return attackedSubmarine.hp == 1 ? AttackResponse.DEAD : AttackResponse.HIT;
+        }
+
+        for (let row = attackedPos.row - 1; row <= attackedPos.row + 1; ++row) {
+            for (let col = attackedPos.col - 1; col <= attackedPos.col + 1; ++col) {
+                if (row < 0 || col < 0 || row >= N || col >= N) continue;
+                if (getSubmarineAt({row: row, col: col}) != null) {
+                    return AttackResponse.NEAR;
+                }
+            }
+        }
+        return AttackResponse.MISS;
+    }
+
     setup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
         CANVAS_WRAPPER_ELEM.appendChild(this.attackButton);
@@ -1431,6 +1609,7 @@ class BattleScene implements Scene, CellEventHandler {
 
     update(timestamp: number): void {
         this.submarineManager.update();
+        this.foregroundAnimations.update(timestamp);
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
@@ -1438,6 +1617,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.gridView.draw(ctx);
         this.submarineManager.draw(ctx);
         this._drawTitle(ctx);
+        this.foregroundAnimations.draw(ctx);
     }
 
     incrementTurn(): void {
@@ -1536,6 +1716,58 @@ class BattleScene implements Scene, CellEventHandler {
                 }
 
                 this.submarineManager.decrementHPAndAutoDeleteAt(this.attackDestPos, opponentTeamID(this.currentTurn), onAnimFinish);
+
+                const opponentSubmarines = this.submarineManager.getSubmarineArrayOfTeam(opponentTeamID(this.currentTurn));
+                const attackResponse = BattleScene.judgeAttackResult(this.attackDestPos, opponentSubmarines);
+                const attackedCellPos = this.gridView.getCellPosition(this.attackDestPos.row, this.attackDestPos.col);
+
+                const animX = attackedCellPos.x + this.gridView.cellWidth / 2;
+                const animY = attackedCellPos.y;
+                const upDistance = this.gridView.cellHeight * 0.3;
+                const animFont = "bold 28px sans-serif";
+                const animTimeLength = 800;
+                const animDelay = 400;
+                const doNothing = () => {
+                };
+
+                switch (attackResponse) {
+                    case AttackResponse.HIT:
+                    case AttackResponse.DEAD:
+                        new FloatUpTextAnimation(
+                            "Hit!", animX, animY, upDistance,
+                            "blue", animFont,
+                            animTimeLength, animDelay,
+                            () => {
+                                if (attackResponse == AttackResponse.DEAD) {
+                                    new FloatUpTextAnimation(
+                                        "Dead", animX, animY, upDistance,
+                                        "black", animFont,
+                                        animTimeLength, 900,
+                                        doNothing
+                                    ).start(self.foregroundAnimations);
+                                }
+                            }
+                        ).start(this.foregroundAnimations);
+                        break;
+
+                    case AttackResponse.NEAR:
+                        new FloatUpTextAnimation(
+                            "Near", animX, animY, upDistance,
+                            "darkViolet", animFont,
+                            animTimeLength, animDelay, doNothing
+                        ).start(this.foregroundAnimations);
+                        break;
+
+                    case AttackResponse.MISS:
+                        new FloatUpTextAnimation(
+                            "Miss", animX, animY, upDistance,
+                            "black", animFont,
+                            animTimeLength, animDelay, doNothing
+                        ).start(this.foregroundAnimations);
+                        break;
+
+                }
+
                 this.enterAnimatingState();
                 break;
             }
