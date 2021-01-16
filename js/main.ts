@@ -8,6 +8,12 @@ const GUIDE_MESSAGE_ELEM = document.getElementById('guide-message') as HTMLDivEl
 const CANVAS_WRAPPER_ELEM = document.getElementById('canvas-wrapper') as HTMLElement;
 
 
+function setGuideMessage(message: string, color: string): void {
+    GUIDE_MESSAGE_ELEM.style.color = color;
+    GUIDE_MESSAGE_ELEM.innerText = message;
+}
+
+
 function newDim2Array<T>(row: number, col: number, fillValue: T): T[][] {
     let ret = new Array<Array<T>>(row);
     for (let i = 0; i < row; ++i) {
@@ -997,8 +1003,13 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
+    static setDefaultGuideMessage() {
+        setGuideMessage("初期配置を設定してください。各チームにつき ちょうど4隻 配置する必要があります。\nセルをクリックして潜水艦の有無を切り替えられます。", "");
+    }
+
     setup(): void {
-        GUIDE_MESSAGE_ELEM.innerText = "初期配置を設定してください。\nセルをクリックして潜水艦の有無を切り替えられます。";
+        InitialPositionInputScene.setDefaultGuideMessage();
+        this.battleButton.disabled = true;
         this._mouseEventSetup();
 
         CANVAS_WRAPPER_ELEM.appendChild(this.teamAShowButton);
@@ -1014,7 +1025,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     tearDown(): void {
-        GUIDE_MESSAGE_ELEM.innerText = "";
+        setGuideMessage("", "");
         this.cellEventDispatcher.unhookMeFrom(this.sceneManager.canvas);
 
         CANVAS_WRAPPER_ELEM.removeChild(this.teamAShowButton);
@@ -1095,21 +1106,21 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
 
     private _onTeamAShowButtonClicked(): void {
         this.currentTeam = TeamID.TEAM_A;
+        InitialPositionInputScene.setDefaultGuideMessage();
     }
 
     private _onTeamBShowButtonClicked(): void {
         this.currentTeam = TeamID.TEAM_B;
+        InitialPositionInputScene.setDefaultGuideMessage();
     }
 
     private _onBattleButtonClicked(): void {
         try {
             this._validatePlacement();
         } catch (e) {
-            GUIDE_MESSAGE_ELEM.style.color = 'red';
-            GUIDE_MESSAGE_ELEM.innerText = e.message;
+            setGuideMessage(e.message, "red");
             return;
         }
-        GUIDE_MESSAGE_ELEM.innerText = "";
         const firstTurnTeam = this.teamAFirstTurnRadioButton.checked ? TeamID.TEAM_A : TeamID.TEAM_B;
         const nextScene = new BattleScene(this.sceneManager,
             this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A),
@@ -1390,7 +1401,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
         this.resetCellsStyle();
-        GUIDE_MESSAGE_ELEM.innerText = "攻撃または移動のどちらかのボタンを押してください。";
+        setGuideMessage("攻撃または移動のどちらかのボタンを押してください。", "");
     }
 
     enterAttackDestSelectState(): void {
@@ -1398,7 +1409,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightAttackableCells();
-        GUIDE_MESSAGE_ELEM.innerText = "攻撃先のマスをクリックして Apply ボタンを押してください。";
+        setGuideMessage("攻撃先のマスをクリックして Apply ボタンを押してください。", "");
     }
 
     enterMoveActorSelectState(): void {
@@ -1406,7 +1417,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightMoveActorCandidateCells();
-        GUIDE_MESSAGE_ELEM.innerText = "移動する潜水艦をクリックしてください。";
+        setGuideMessage("移動する潜水艦をクリックしてください。", "");
     }
 
     enterMoveDestSelectState(): void {
@@ -1414,7 +1425,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightMoveDestCandidateCells();
-        GUIDE_MESSAGE_ELEM.innerText = "移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。";
+        setGuideMessage("移動先のマスをクリックして Apply ボタンを押してください。\n潜水艦をクリックすれば移動する潜水艦を変えることができます。", "");
     }
 
     enterAnimatingState(): void {
@@ -1422,7 +1433,7 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(false, false, false, false);
         this.applyButton.disabled = true;
         this.resetCellsStyle();
-        GUIDE_MESSAGE_ELEM.innerText = "";
+        setGuideMessage("", "");
     }
 
     enterBattleFinishedState(): void {
@@ -1437,7 +1448,7 @@ class BattleScene implements Scene, CellEventHandler {
         } else {
             winnerTeamName = (TEAM_B_NAME_INPUT.value || "TeamB");
         }
-        GUIDE_MESSAGE_ELEM.innerText = "チーム " + winnerTeamName + " の皆さんおめでとうございます🎉🎉🎉";
+        setGuideMessage("チーム " + winnerTeamName + " の皆さんおめでとうございます🎉🎉🎉", "forestgreen");
     }
 
     setButtonDisplayStyle(goBackButtonEnabled: boolean, attackButtonEnabled: boolean, moveButtonEnabled: boolean, applyButtonEnabled: boolean): void {
