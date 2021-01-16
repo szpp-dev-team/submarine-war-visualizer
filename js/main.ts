@@ -765,6 +765,10 @@ class SubmarineManager {
             .start();
     }
 
+    countSubmarine(teamID: TeamID): number {
+        return this.getSubmarineArrayOfTeam(teamID).length;
+    }
+
     isTeamAWinner(): boolean {
         return this.teamASubmarines.length > 0 && this.teamBSubmarines.length <= 0;
     }
@@ -1115,11 +1119,11 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     private _validatePlacement(): void {
-        if (this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A).length != 4) {
+        if (this.teamASubmarineManager.countSubmarine(TeamID.TEAM_A) != 4) {
             const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
             throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
         }
-        if (this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B).length != 4) {
+        if (this.teamBSubmarineManager.countSubmarine(TeamID.TEAM_B) != 4) {
             const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
             throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
         }
