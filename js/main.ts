@@ -102,9 +102,9 @@ abstract class MyColor {
 }
 
 
-abstract class MyAnimation {
+abstract class MyTimer {
     private _timestampAtRegistered = -1;
-    private _timestampAtAnimStarted = -1;
+    private _timestampAtTaskStarted = -1;
 
     protected constructor(
         readonly delay: number,
@@ -132,16 +132,16 @@ abstract class MyAnimation {
             return;
         }
 
-        if (this._timestampAtAnimStarted == -1) {
-            this._timestampAtAnimStarted = timestamp;
+        if (this._timestampAtTaskStarted == -1) {
+            this._timestampAtTaskStarted = timestamp;
         }
-        const elapsedTimeFromAnimStarted = timestamp - this._timestampAtAnimStarted;
+        const elapsedTimeFromAnimStarted = timestamp - this._timestampAtTaskStarted;
         this.handle(elapsedTimeFromAnimStarted);
     }
 }
 
 
-class TimeRatioAnimation extends MyAnimation {
+class TimeRatioAnimation extends MyTimer {
     readonly lengthTime: number;
     readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
 
@@ -171,7 +171,7 @@ class TimeRatioAnimation extends MyAnimation {
 }
 
 
-class SpriteSheetAnimation extends MyAnimation {
+class SpriteSheetAnimation extends MyTimer {
 
     readonly frameWidth: number;
     readonly frameHeight: number;
@@ -219,7 +219,7 @@ class SpriteSheetAnimation extends MyAnimation {
 }
 
 
-class BlinkAnimation extends MyAnimation {
+class BlinkAnimation extends MyTimer {
     private _hasAnimFinished: boolean;
 
     constructor(
@@ -249,9 +249,9 @@ class BlinkAnimation extends MyAnimation {
 
 
 abstract class AnimationExecutor {
-    private static _animationList: MyAnimation[] = [];
+    private static _animationList: MyTimer[] = [];
 
-    static registerAnimation(anim: MyAnimation): void {
+    static registerAnimation(anim: MyTimer): void {
         anim.update = anim.update.bind(anim);
         anim.hasAnimFinished = anim.hasAnimFinished.bind(anim);
         this._animationList.push(anim);
