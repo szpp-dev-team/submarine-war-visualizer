@@ -1008,6 +1008,10 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         setGuideMessage("初期配置を設定してください。各チームにつき ちょうど4隻 配置する必要があります。\nセルをクリックして潜水艦の有無を切り替えられます。", "");
     }
 
+    static setSubmarineCountAllSatisfiedGuideMessage() {
+        setGuideMessage("両チームともに配置がちょうど4隻になりました。\n先攻のチームが正しいことを確認してください。[Start Battle] ボタンで対戦を開始します。", "forestgreen");
+    }
+
     setup(): void {
         InitialPositionInputScene.setDefaultGuideMessage();
         this.battleButton.disabled = true;
@@ -1069,8 +1073,30 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             existence[row][col] = false;
             submarineManager.deleteSubmarineAt(cell, this.currentTeam);
         } else {
+            if (submarineManager.countSubmarine(this.currentTeam) >= 4) {
+                setGuideMessage("4隻以上の配置は許されません。\n潜水艦のあるマスをクリックすることでその潜水艦を消すことができます。", "red");
+                return;
+            }
+
             existence[row][col] = true;
             submarineManager.newSubmarineAt(cell, this.currentTeam);
+        }
+
+        const isTeamAOK = this.teamASubmarineManager.countSubmarine(TeamID.TEAM_A) == 4;
+        const isTeamBOK = this.teamBSubmarineManager.countSubmarine(TeamID.TEAM_B) == 4;
+
+        if (isTeamAOK && isTeamBOK) {
+            this.battleButton.disabled = !this._canBattleStart();
+            InitialPositionInputScene.setSubmarineCountAllSatisfiedGuideMessage();
+        } else {
+            this.battleButton.disabled = true;
+            if (isTeamAOK && this.currentTeam == TeamID.TEAM_A) {
+                setGuideMessage("TeamAの配置がちょうど4隻になりました。\n左上の [TeamBの配置へ] ボタンを押してTeamBの初期配置も設定してください。", "");
+            } else if (isTeamBOK && this.currentTeam == TeamID.TEAM_B) {
+                setGuideMessage("TeamBの配置がちょうど4隻になりました。\n左上の [TeamAの配置へ] ボタンを押してTeamAの初期配置も設定してください。", "");
+            } else {
+                InitialPositionInputScene.setDefaultGuideMessage();
+            }
         }
     }
 
@@ -1109,24 +1135,39 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
     }
 
+    private _onAnyTeamShowButtonClicked(): void {
+        if (this._isTeamAPlacementOK() && this._isTeamBPlacementOK()) {
+            InitialPositionInputScene.setSubmarineCountAllSatisfiedGuideMessage();
+        } else {
+            InitialPositionInputScene.setDefaultGuideMessage();
+        }
+    }
+
     private _onTeamAShowButtonClicked(): void {
         this.currentTeam = TeamID.TEAM_A;
-        InitialPositionInputScene.setDefaultGuideMessage();
+        this._onAnyTeamShowButtonClicked();
     }
 
     private _onTeamBShowButtonClicked(): void {
         this.currentTeam = TeamID.TEAM_B;
-        InitialPositionInputScene.setDefaultGuideMessage();
+        this._onAnyTeamShowButtonClicked();
     }
 
     private _onBattleButtonClicked(): void {
-        try {
-            this._validatePlacement();
-        } catch (e) {
-            setGuideMessage(e.message, "red");
+        if (!this._isTeamAPlacementOK()) {
+            setGuideMessage("TeamAの配置が不正です。 ちょうど4隻配置してください。", "red");
             return;
         }
-        const firstTurnTeam = this.teamAFirstTurnRadioButton.checked ? TeamID.TEAM_A : TeamID.TEAM_B;
+        if (!this._isTeamBPlacementOK()) {
+            setGuideMessage("TeamBの配置が不正です。 ちょうど4隻配置してください。", "red");
+            return;
+        }
+        if (!this._isAnyFirstTurnTeamSelected()) {
+            setGuideMessage("先攻のチームを選択してください。", "red");
+            return;
+        }
+
+        const firstTurnTeam = this._getSelectedFirstTurnTeam();
         const nextScene = new BattleScene(this.sceneManager,
             this.teamASubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_A),
             this.teamBSubmarineManager.getSubmarineArrayOfTeam(TeamID.TEAM_B),
@@ -1134,15 +1175,33 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         this.sceneManager.changeScene(nextScene);
     }
 
-    private _validatePlacement(): void {
-        if (this.teamASubmarineManager.countSubmarine(TeamID.TEAM_A) != 4) {
-            const teamName = TEAM_A_NAME_INPUT.value || "TeamA";
-            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
+    private _canBattleStart(): boolean {
+        return (
+            this._isTeamAPlacementOK() &&
+            this._isTeamBPlacementOK() &&
+            this._isAnyFirstTurnTeamSelected());
+    }
+
+    private _isTeamAPlacementOK(): boolean {
+        return this.teamASubmarineManager.countSubmarine(TeamID.TEAM_A) == 4;
+    }
+
+    private _isTeamBPlacementOK(): boolean {
+        return this.teamBSubmarineManager.countSubmarine(TeamID.TEAM_B) == 4;
+    }
+
+    private _isAnyFirstTurnTeamSelected(): boolean {
+        return this._getSelectedFirstTurnTeam() != null;
+    }
+
+    private _getSelectedFirstTurnTeam(): TeamID | null {
+        if (this.teamAFirstTurnRadioButton.checked) {
+            return TeamID.TEAM_A;
         }
-        if (this.teamBSubmarineManager.countSubmarine(TeamID.TEAM_B) != 4) {
-            const teamName = TEAM_B_NAME_INPUT.value || "TeamB";
-            throw new Error(teamName + " の配置が不正です。\nちょうど4個配置してください。");
+        if (this.teamBFirstTurnRadioButton.checked) {
+            return TeamID.TEAM_B;
         }
+        return null;
     }
 }
 
