@@ -987,7 +987,8 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             }
             this.teamAFirstTurnRadioButton = createRadioButton('first-turn-team');
             this.teamBFirstTurnRadioButton = createRadioButton('first-turn-team');
-            this.teamAFirstTurnRadioButton.checked = true;
+            this.teamAFirstTurnRadioButton.onchange = this._onFirstTurnTeamRadioButtonChange.bind(this);
+            this.teamBFirstTurnRadioButton.onchange = this._onFirstTurnTeamRadioButtonChange.bind(this);
 
             this.teamAFirstTurnLabel = createLabelWithinRadioButton('TeamA先攻', this.teamAFirstTurnRadioButton, 24);
             this.teamBFirstTurnLabel = createLabelWithinRadioButton('TeamB先攻', this.teamBFirstTurnRadioButton, 24);
@@ -1098,6 +1099,10 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             40,
             28,
             underlineColor);
+    }
+
+    private _onFirstTurnTeamRadioButtonChange() {
+        this.battleButton.disabled = !this._canBattleStart();
     }
 
     private _mouseEventSetup(): void {
