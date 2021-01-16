@@ -2037,10 +2037,18 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     private _drawBack(ctx: CanvasRenderingContext2D): void {
-        if (this.currentTurn == TeamID.TEAM_A) {
-            ctx.fillStyle = MyColor.teamA_background;
+        if (this.currentState == BattleSceneState.BATTLE_FINISHED) {
+            if (this.submarineManager.isTeamAWinner()) {
+                ctx.fillStyle = MyColor.teamA_background;
+            } else {
+                ctx.fillStyle = MyColor.teamB_background;
+            }
         } else {
-            ctx.fillStyle = MyColor.teamB_background;
+            if (this.currentTurn == TeamID.TEAM_A) {
+                ctx.fillStyle = MyColor.teamA_background;
+            } else {
+                ctx.fillStyle = MyColor.teamB_background;
+            }
         }
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
