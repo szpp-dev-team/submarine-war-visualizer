@@ -115,6 +115,8 @@ abstract class MyColor {
     static readonly clickableGreen = '#c3ffc3';
     static readonly selectedClickableGreen = '#78ff5f';
     static readonly moveActorCyan = '#afeeff';
+    static readonly teamA_background = '#fdf0f0';
+    static readonly teamB_background = '#f1f6ff';
 }
 
 
@@ -359,7 +361,7 @@ function isSameCellPos(p1: CellPos, p2: CellPos): boolean {
 
 
 class Cell implements CellPos {
-    static readonly DEFAULT_FILL_COLOR = MyColor.whiteGray;
+    static readonly DEFAULT_FILL_COLOR = "#fcfcfc"
     static readonly DEFAULT_BORDER_COLOR = MyColor.lightGray;
     static readonly DEFAULT_BORDER_THICKNESS = 2;
     static readonly DEFAULT_MOUSE_HOVER_FILL_COLOR = '#ffffe9';
@@ -1042,8 +1044,12 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         setGuideMessage("両チームともに配置がちょうど4隻になりました。\n先攻のチームが正しいことを確認してください。[Start Battle] ボタンで対戦を開始します。", "forestgreen");
     }
 
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.backGround;
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
+        if (this.currentTeam == TeamID.TEAM_A) {
+            ctx.fillStyle = MyColor.teamA_background;
+        } else {
+            ctx.fillStyle = MyColor.teamB_background;
+        }
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
@@ -1084,7 +1090,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        InitialPositionInputScene._drawBack(ctx);
+        this._drawBack(ctx);
         this.gridView.draw(ctx);
         this._drawOverlayRect(ctx, this.overlayRect);
         if (this.currentTeam == TeamID.TEAM_A) {
@@ -1390,8 +1396,12 @@ class BattleScene implements Scene, CellEventHandler {
         return movableCellGrid;
     }
 
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.backGround;
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
+        if (this.currentTurn == TeamID.TEAM_A) {
+            ctx.fillStyle = MyColor.teamA_background;
+        } else {
+            ctx.fillStyle = MyColor.teamB_background;
+        }
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
@@ -1417,7 +1427,7 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        BattleScene._drawBack(ctx);
+        this._drawBack(ctx);
         this.gridView.draw(ctx);
         this.submarineManager.draw(ctx);
         this._drawTitle(ctx);
