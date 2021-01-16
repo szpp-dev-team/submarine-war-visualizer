@@ -2,7 +2,8 @@
   Global style
 ------------------------------------------------------------------------------- */
 .wrapper {
-    width: fit-content;
+    width: max-content;
+    width: -moz-max-content;
     margin: 0 auto;
 }
 
@@ -13,6 +14,16 @@ input[type="text"] {
 
 input:focus {
     outline: none;
+}
+
+.canvas-history-split {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+}
+
+.canvas-history-split > .wrapper {
+    margin: 0;
 }
 
 /* -------------------------------------------------------------------------------
@@ -26,10 +37,24 @@ header {
 }
 
 header > h1 {
-    width: fit-content;
+    width: max-content;
+    width: -moz-max-content;
     margin: auto;
     color: white;
     font-size: 28px;
+}
+
+footer {
+    width: 100%;
+    background-color: #eee;
+    padding: 10px;
+    margin-top: 30px;
+    text-align: center;
+}
+
+footer small {
+    display: inline-block;
+    margin: 40px auto;
 }
 
 /* -------------------------------------------------------------------------------
@@ -38,6 +63,7 @@ header > h1 {
 #team-name-inputs {
     display: flex;
     justify-content: space-between;
+    height: 57px;
 }
 
 #team-name-inputs input {
@@ -70,9 +96,96 @@ header > h1 {
 }
 
 /* -------------------------------------------------------------------------------
+  History table
+------------------------------------------------------------------------------- */
+
+#op-history-title {
+    height: 57px;
+    font-size: 24px;
+    padding: 10px 0;
+}
+
+table#op-history {
+    width: 500px;
+    border-collapse: collapse;
+    border-spacing: 0;
+    border: 1px solid #ccc;
+}
+
+table#op-history thead tr {
+    background-color: #eee;
+    border-bottom: solid 2px #999;
+}
+
+table#op-history tbody tr {
+    border-bottom: solid 1px #ccc;
+}
+
+table#op-history td, table#op-history th {
+    padding: 10px;
+}
+
+
+/* TurnCount */
+table#op-history tr th:nth-of-type(1),
+table#op-history tr td:nth-of-type(1) {
+    text-align: center;
+}
+
+/* TeamID */
+table#op-history tr th:nth-of-type(2),
+table#op-history tr td:nth-of-type(2) {
+    text-align: center;
+}
+
+/* Operation */
+table#op-history tr th:nth-of-type(3),
+table#op-history tr td:nth-of-type(3) {
+    text-align: left;
+}
+
+/* Result */
+table#op-history tr th:nth-of-type(4),
+table#op-history tr td:nth-of-type(4) {
+    text-align: left;
+}
+
+table#op-history .teamA {
+    background-color: #ffe7e7;
+}
+
+table#op-history .teamB {
+    background-color: #e1f4ff;
+}
+
+.cell-code {
+    font-family: monospace;
+    padding: 1px 8px;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    color: #333;
+}
+
+
+/* -------------------------------------------------------------------------------
   Utility
 ------------------------------------------------------------------------------- */
 .m-auto {
     margin: auto;
 }
 
+/* ------------------------------------------------------------------------------- */
+
+@media (max-width: 1600px) {
+    .canvas-history-split {
+        flex-direction: column;
+    }
+
+    .canvas-history-split > .wrapper {
+        margin: 0 auto;
+    }
+
+    table#op-history {
+        width: 960px;
+    }
+}
