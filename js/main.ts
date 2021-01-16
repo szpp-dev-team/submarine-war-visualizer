@@ -98,9 +98,26 @@ abstract class Geometry {
 
 
 abstract class Easing {
+    static easeInCubic(x: number): number {
+        return x * x * x;
+    }
+
     static easeOutCubic(x: number): number {
         const t = 1 - x;
         return 1 - t * t * t;
+    }
+
+    static easeOutSine(x: number): number {
+        return Math.sin(x * Math.PI / 2);
+    }
+
+    static easeOutQuint(x: number): number {
+        const t = 1 - x;
+        return 1 - t * t * t * t * t;
+    }
+
+    static easeOutQuad(x: number): number {
+        return 1 - (1 - x) * (1 - x);
     }
 }
 
