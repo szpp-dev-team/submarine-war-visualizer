@@ -819,7 +819,7 @@ class SubmarineManager {
             };
 
             this.explosionAnimation = new SpriteSheetAnimation(this.explosionSpriteSheet,
-                5, 10, 20, 200, (submarine == null ? onAnimFinish : doNothing));
+                5, 10, 20, 200, doNothing);
 
             const cellPos = this.gridView.getCellPosition(pos.row, pos.col);
             const w = this.gridView.cellWidth * 1.5;
@@ -854,6 +854,37 @@ class SubmarineManager {
 
             submarine.opacity = 1.0;
             new BlinkTransition(submarine, 1200, 100, 200, onAnimFinish_wrap).start();
+        } else {
+            const wavedSubmarines = [] as Submarine[];
+            for (let row = pos.row - 1; row <= pos.row + 1; ++row) {
+                for (let col = pos.col - 1; col <= pos.col + 1; ++col) {
+                    const s = this.getSubmarineAt({row: row, col: col}, teamID);
+                    if (s != null) {
+                        s.isConstrainedToCell = false;
+                        s.opacity = 1.0;
+                        wavedSubmarines.push(s);
+                    }
+                }
+            }
+            const self = this;
+            new TimeRatioTransition(1000, 300,
+                (ratio: number): boolean => {
+                    const theta = ratio * Math.PI * 8;
+                    for (const s of wavedSubmarines) {
+                        const drawnBasePos = SubmarineManager.calcSubmarineDrawnPosConstrainedToCell(
+                            s, teamID, self.gridView, self.submarineImageWidth, self.submarineImageHeight,
+                            self.isExistsAt(s, opponentTeamID(teamID))
+                        );
+                        s.x = drawnBasePos.x + Math.sin(theta) * self.gridView.cellWidth * 0.1;
+                    }
+                    return true;
+                },
+                () => {
+                    for (const s of wavedSubmarines) {
+                        s.isConstrainedToCell = true;
+                    }
+                    onAnimFinish();
+                }).start();
         }
     }
 
