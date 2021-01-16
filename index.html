@@ -14,18 +14,39 @@
 </header>
 
 <main>
-    <div class="wrapper">
-        <div id="team-name-inputs">
-            <input id="teamA-name" placeholder="TeamA's name" type="text">
-            <div class="m-auto">VS</div>
-            <input id="teamB-name" placeholder="TeamB's name" type="text">
+    <div class="canvas-history-split">
+        <div class="wrapper">
+            <div id="team-name-inputs">
+                <input id="teamA-name" placeholder="TeamA's name" type="text">
+                <div class="m-auto">VS</div>
+                <input id="teamB-name" placeholder="TeamB's name" type="text">
+            </div>
+            <div id="canvas-wrapper">
+                <canvas id="main-canvas"></canvas>
+            </div>
+            <div class="is-size-5 has-text-centered mb-2" id="guide-message"></div>
         </div>
-        <div id="canvas-wrapper">
-            <canvas id="main-canvas"></canvas>
+        <div class="wrapper">
+            <h1 id="op-history-title">対戦履歴</h1>
+            <table id="op-history">
+                <thead>
+                    <tr>
+                        <th>Turn</th>
+                        <th>Team</th>
+                        <th>Operation</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
         </div>
-        <div class="is-size-5 has-text-centered mb-2" id="guide-message"></div>
     </div>
 </main>
+
+<footer>
+    <small>&copy; 2021 Shizuoka-Univ-Dev.</small>
+</footer>
 
 <script src="js/main.js"></script>
 </body>
