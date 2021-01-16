@@ -1415,6 +1415,14 @@ enum BattleSceneState {
 }
 
 
+enum AttackResponse {
+    HIT,
+    DEAD,
+    NEAR,
+    MISS
+}
+
+
 class BattleScene implements Scene, CellEventHandler {
     readonly sceneManager: SceneManager;
     readonly gridView: GridView;
@@ -1668,6 +1676,27 @@ class BattleScene implements Scene, CellEventHandler {
                 break;
             }
         }
+    }
+
+    static judgeAttackResult(attackedPos: CellPos, submarines: Submarine[]): AttackResponse {
+        function getSubmarineAt(p: CellPos): Submarine | null {
+            return submarines.find(submarine => isSameCellPos(submarine, p));
+        }
+
+        const attackedSubmarine = getSubmarineAt(attackedPos);
+        if (attackedSubmarine != null) {
+            return attackedSubmarine.hp == 1 ? AttackResponse.DEAD : AttackResponse.HIT;
+        }
+
+        for (let row = attackedPos.row - 1; row <= attackedPos.row + 1; ++row) {
+            for (let col = attackedPos.col - 1; col <= attackedPos.col + 1; ++col) {
+                if (row < 0 || col < 0 || row >= N || col >= N) continue;
+                if (getSubmarineAt({row: row, col: col}) != null) {
+                    return AttackResponse.NEAR;
+                }
+            }
+        }
+        return AttackResponse.MISS;
     }
 
     enterOpTypeSelectState(): void {
