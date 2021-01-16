@@ -271,6 +271,58 @@ class SpriteSheetAnimation extends MyAnimation {
 }
 
 
+class FloatUpTextAnimation extends MyAnimation {
+    private readonly x: number;
+    private y: number;
+    private opacity: number;
+    private hasFinished: boolean = false;
+
+    constructor(
+        readonly text: string,
+        readonly startX: number,
+        readonly startY: number,
+        readonly upDistance: number,
+        readonly fillColor: string,
+        readonly font: string,
+        readonly timeLength: number,
+        delay: number,
+        onAnimFinish: () => void,
+    ) {
+        super(delay, onAnimFinish);
+        this.x = startX;
+        this.y = startY;
+        this.opacity = 1.0;
+    }
+
+    handle(elapsedTimeMilli: number): void {
+        if (elapsedTimeMilli > this.timeLength) {
+            this.hasFinished = true;
+            return;
+        }
+        const ratio = Math.min(this.timeLength, elapsedTimeMilli) / this.timeLength;
+        this.y = this.startY - (this.upDistance * Easing.easeOutSine(ratio));
+        this.opacity = 1.0 - Easing.easeInCubic(ratio);
+    }
+
+    hasAnimFinished(): boolean {
+        return this.hasFinished;
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        if (this.hasAnimFinished()) return;
+
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = this.fillColor;
+        ctx.font = this.font;
+        ctx.globalAlpha = this.opacity;
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+
 class BlinkTransition extends MyTransition {
     private _hasAnimFinished: boolean;
 
