@@ -154,6 +154,10 @@ abstract class MyTransition {
         TransitionExecutor.registerTransition(this);
     }
 
+    hasDelayFinished(): boolean {
+        return this._timestampAtTransitionStarted != -1;
+    }
+
     update(timestamp: number): void {
         if (this.hasAnimFinished()) {
             return;
@@ -178,6 +182,14 @@ abstract class MyTransition {
 
 abstract class MyAnimation extends MyTransition {
     abstract draw(ctx: CanvasRenderingContext2D): void;
+
+    start(animExecutor: AnimationExecutor = null) {
+        if (animExecutor == null) {
+            super.start();
+        } else {
+            animExecutor.registerAnimation(this);
+        }
+    }
 }
 
 
@@ -309,6 +321,41 @@ abstract class TransitionExecutor {
                 this._transitionList.splice(i, 1);
             } else {
                 ++i;
+            }
+        }
+    }
+}
+
+
+class AnimationExecutor {
+    private readonly _animList: MyAnimation[] = [];
+
+    registerAnimation(anim: MyAnimation): void {
+        anim.update = anim.update.bind(anim);
+        anim.hasAnimFinished = anim.hasAnimFinished.bind(anim);
+        this._animList.push(anim);
+    }
+
+    update(timestamp: number): void {
+        let i = 0;
+
+        while (i < this._animList.length) {
+            const trans = this._animList[i];
+            trans.update(timestamp);
+
+            if (trans.hasAnimFinished()) {
+                trans.onAnimFinish();
+                this._animList.splice(i, 1);
+            } else {
+                ++i;
+            }
+        }
+    }
+
+    draw(ctx: CanvasRenderingContext2D): void {
+        for (const anim of this._animList) {
+            if (anim.hasDelayFinished() && !anim.hasAnimFinished()) {
+                anim.draw(ctx);
             }
         }
     }
