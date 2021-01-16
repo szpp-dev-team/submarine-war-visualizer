@@ -115,6 +115,8 @@ abstract class MyColor {
     static readonly clickableGreen = '#c3ffc3';
     static readonly selectedClickableGreen = '#78ff5f';
     static readonly moveActorCyan = '#afeeff';
+    static readonly teamA_background = '#fdf0f0';
+    static readonly teamB_background = '#f1f6ff';
 }
 
 
@@ -354,12 +356,13 @@ interface CellPos {
 
 
 function isSameCellPos(p1: CellPos, p2: CellPos): boolean {
+    if (p1 == null || p2 == null) return false;
     return p1.row == p2.row && p1.col == p2.col;
 }
 
 
 class Cell implements CellPos {
-    static readonly DEFAULT_FILL_COLOR = MyColor.whiteGray;
+    static readonly DEFAULT_FILL_COLOR = "#fcfcfc"
     static readonly DEFAULT_BORDER_COLOR = MyColor.lightGray;
     static readonly DEFAULT_BORDER_THICKNESS = 2;
     static readonly DEFAULT_MOUSE_HOVER_FILL_COLOR = '#ffffe9';
@@ -643,8 +646,6 @@ class SubmarineManager {
         this.explosionSpriteSheet.src = "assets/explosion.png";
     }
 
-    // 新しく潜水艦を追加する。
-
     static calcSubmarineDrawnPosConstrainedToCell(
         pos: CellPos,
         teamID: TeamID,
@@ -698,8 +699,11 @@ class SubmarineManager {
         const submarine = this.getSubmarineAt(pos, teamID);
 
         {
+            const doNothing = function () {
+            };
+
             this.explosionAnimation = new SpriteSheetAnimation(this.explosionSpriteSheet,
-                5, 10, 20, 10, onAnimFinish);
+                5, 10, 20, 200, (submarine == null ? onAnimFinish : doNothing));
 
             const cellPos = this.gridView.getCellPosition(pos.row, pos.col);
             const w = this.gridView.cellWidth * 1.5;
@@ -725,10 +729,14 @@ class SubmarineManager {
                         },
                         () => {
                             self.deleteSubmarineAt(pos, teamID);
+                            setTimeout(onAnimFinish, 500);
                         }).start();
+                } else {
+                    setTimeout(onAnimFinish, 500);
                 }
             }
 
+            submarine.opacity = 1.0;
             new BlinkTransition(submarine, 1000, 100, 200, onAnimFinish_wrap).start();
         }
     }
@@ -747,6 +755,9 @@ class SubmarineManager {
         const submarineWidth = this.submarineImageWidth;
         const submarineHeight = this.submarineImageHeight;
 
+        this.setSubmarinesOpacity(TeamID.TEAM_A, 0.2);
+        this.setSubmarinesOpacity(TeamID.TEAM_B, 0.2);
+
         function pushMoveInfo(submarine: Submarine, to: CellPos, teamID: TeamID, isOpponentAtSameCell: boolean): void {
             const fromX = submarine.x;
             const fromY = submarine.y;
@@ -756,6 +767,7 @@ class SubmarineManager {
                 isOpponentAtSameCell);
             moveInfos.push({submarine: submarine, fromX: fromX, fromY: fromY, toX: toX, toY: toY});
             submarine.isConstrainedToCell = false;
+            submarine.opacity = 1.0;
         }
 
         if (this.isExistsAt(from, opponent)) {
@@ -804,6 +816,12 @@ class SubmarineManager {
         return this.teamBSubmarines.length > 0 && this.teamASubmarines.length <= 0;
     }
 
+    setSubmarinesOpacity(teamID: TeamID, opacity: number): void {
+        for (const submarine of this.getSubmarineArrayOfTeam(teamID)) {
+            submarine.opacity = opacity;
+        }
+    }
+
     update(): void {
         this.submarineImageWidth = this.gridView.cellWidth * 0.60;
         this.submarineImageHeight = this.gridView.cellHeight * 0.25;
@@ -850,11 +868,11 @@ class SubmarineManager {
                     submarine.y);
             }
         }
+        ctx.restore();
 
         if (this.explosionAnimation != null) {
             this.explosionAnimation.draw(ctx);
         }
-        ctx.restore();
     }
 
     getSubmarineImage(teamID: TeamID): HTMLImageElement {
@@ -871,7 +889,7 @@ class SubmarineManager {
         return this.indexOfSubmarineAt(pos, teamID) >= 0;
     }
 
-    private getSubmarineAt(pos: CellPos, teamID: TeamID): Submarine | null {
+    getSubmarineAt(pos: CellPos, teamID: TeamID): Submarine | null {
         const foundIndex = this.indexOfSubmarineAt(pos, teamID);
         return (foundIndex < 0 ? null : this.getSubmarineArrayOfTeam(teamID)[foundIndex]);
     }
@@ -1042,11 +1060,6 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         setGuideMessage("両チームともに配置がちょうど4隻になりました。\n先攻のチームが正しいことを確認してください。[Start Battle] ボタンで対戦を開始します。", "forestgreen");
     }
 
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.backGround;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    }
-
     setup(): void {
         InitialPositionInputScene.setDefaultGuideMessage();
         this.battleButton.disabled = true;
@@ -1084,7 +1097,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        InitialPositionInputScene._drawBack(ctx);
+        this._drawBack(ctx);
         this.gridView.draw(ctx);
         this._drawOverlayRect(ctx, this.overlayRect);
         if (this.currentTeam == TeamID.TEAM_A) {
@@ -1153,6 +1166,15 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
     }
 
     onMouseLeaveCell(cell: Cell): void {
+    }
+
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
+        if (this.currentTeam == TeamID.TEAM_A) {
+            ctx.fillStyle = MyColor.teamA_background;
+        } else {
+            ctx.fillStyle = MyColor.teamB_background;
+        }
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     private _drawOverlayRect(ctx: CanvasRenderingContext2D, overlayRect: OverlayRect | null): void {
@@ -1390,11 +1412,6 @@ class BattleScene implements Scene, CellEventHandler {
         return movableCellGrid;
     }
 
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.backGround;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    }
-
     setup(): void {
         this.cellEventDispatcher.hookMeInto(this.sceneManager.canvas);
         CANVAS_WRAPPER_ELEM.appendChild(this.attackButton);
@@ -1417,7 +1434,7 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        BattleScene._drawBack(ctx);
+        this._drawBack(ctx);
         this.gridView.draw(ctx);
         this.submarineManager.draw(ctx);
         this._drawTitle(ctx);
@@ -1439,6 +1456,10 @@ class BattleScene implements Scene, CellEventHandler {
                     c.borderThickness = 5;
                     c.borderColor = c.mouseHoveredBorderColor = 'darkOrange';
                     c.fillColor = MyColor.selectedClickableGreen;
+                    const opponent = opponentTeamID(this.currentTurn);
+                    this.submarineManager.setSubmarinesOpacity(opponent, 0.2);
+                    const s = this.submarineManager.getSubmarineAt(c, opponent);
+                    if (s != null) s.opacity = 1.0;
 
                     this.applyButton.disabled = false;
                 }
@@ -1467,9 +1488,22 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     onMouseEnterCell(c: Cell): void {
+        if (this.currentState == BattleSceneState.ATTACK_DEST_SELECT) {
+            if (this.attackableCellGrid[c.row][c.col] == false) return;
+            const s = this.submarineManager.getSubmarineAt(c, opponentTeamID(this.currentTurn));
+            if (s != null) {
+                s.opacity = 1.0;
+            }
+        }
     }
 
     onMouseLeaveCell(c: Cell): void {
+        if (this.currentState == BattleSceneState.ATTACK_DEST_SELECT) {
+            const s = this.submarineManager.getSubmarineAt(c, opponentTeamID(this.currentTurn));
+            if (s != null && !isSameCellPos(s, this.attackDestPos)) {
+                s.opacity = 0.2;
+            }
+        }
     }
 
     onAttackButtonClick(): void {
@@ -1515,8 +1549,6 @@ class BattleScene implements Scene, CellEventHandler {
                 }
                 this.submarineManager.moveFromTo(this.moveActor, this.moveDest, this.currentTurn, 500, onAnimFinish);
                 this.enterAnimatingState();
-                // this.incrementTurn();
-                // this.enterOpTypeSelectState();
                 break;
             }
         }
@@ -1526,6 +1558,8 @@ class BattleScene implements Scene, CellEventHandler {
         this.currentState = BattleSceneState.OP_TYPE_SELECT;
         this.setButtonDisplayStyle(false, true, true, false);
         this.resetCellsStyle();
+        this.submarineManager.setSubmarinesOpacity(this.currentTurn, 1.0);
+        this.submarineManager.setSubmarinesOpacity(opponentTeamID(this.currentTurn), 0.5);
         setGuideMessage("攻撃または移動のどちらかのボタンを押してください。", "");
     }
 
@@ -1534,6 +1568,8 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightAttackableCells();
+        this.submarineManager.setSubmarinesOpacity(this.currentTurn, 0.2);
+        this.submarineManager.setSubmarinesOpacity(opponentTeamID(this.currentTurn), 0.2);
         setGuideMessage("攻撃先のマスをクリックして Apply ボタンを押してください。", "");
     }
 
@@ -1542,6 +1578,8 @@ class BattleScene implements Scene, CellEventHandler {
         this.setButtonDisplayStyle(true, false, false, true);
         this.applyButton.disabled = true;
         this.highlightMoveActorCandidateCells();
+        this.submarineManager.setSubmarinesOpacity(this.currentTurn, 1.0);
+        this.submarineManager.setSubmarinesOpacity(opponentTeamID(this.currentTurn), 0.2);
         setGuideMessage("移動する潜水艦をクリックしてください。", "");
     }
 
@@ -1659,6 +1697,15 @@ class BattleScene implements Scene, CellEventHandler {
             const cell = this.gridView.getCellAt(this.moveActor);
             cell.fillColor = MyColor.moveActorCyan;
         }
+    }
+
+    private _drawBack(ctx: CanvasRenderingContext2D): void {
+        if (this.currentTurn == TeamID.TEAM_A) {
+            ctx.fillStyle = MyColor.teamA_background;
+        } else {
+            ctx.fillStyle = MyColor.teamB_background;
+        }
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     private _drawTitle(ctx: CanvasRenderingContext2D): void {
