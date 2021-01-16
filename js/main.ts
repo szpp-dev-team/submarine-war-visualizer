@@ -7,6 +7,103 @@ const TEAM_B_NAME_INPUT = document.getElementById('teamB-name') as HTMLInputElem
 const GUIDE_MESSAGE_ELEM = document.getElementById('guide-message') as HTMLDivElement;
 const CANVAS_WRAPPER_ELEM = document.getElementById('canvas-wrapper') as HTMLElement;
 
+const OP_HISTORY_TABLE = document.getElementById('op-history') as HTMLTableElement;
+const OP_HISTORY_TABLE_BODY = OP_HISTORY_TABLE.getElementsByTagName('tbody').item(0) as HTMLTableSectionElement;
+
+
+enum Direction {
+    NORTH, SOUTH, EAST, WEST
+}
+
+
+function directionToStringJP(dir: Direction): string {
+    switch (dir) {
+        case Direction.NORTH: return "北";
+        case Direction.SOUTH: return "南";
+        case Direction.EAST: return "東";
+        case Direction.WEST: return "西";
+    }
+    return "";
+}
+
+
+function calcMoveVector(from: CellPos, to: CellPos): {dir: Direction, length: number} {
+    const dy = to.row - from.row;
+    const dx = to.col - from.col;
+    console.assert(dy == 0 || dx == 0);
+
+    let dir: Direction;
+
+    if (dy == 0) {
+        if (dx > 0) dir = Direction.EAST;
+        else dir = Direction.WEST;
+    } else {
+        if (dy > 0) dir = Direction.SOUTH;
+        else dir = Direction.NORTH;
+    }
+
+    return {dir: dir, length: Math.abs(dy + dx)};
+}
+
+
+function cellAddrCode(pos: CellPos): string {
+    return String.fromCharCode("A".charCodeAt(0) + pos.row) + (pos.col + 1).toString();
+}
+
+function responseStringJP(attackResponse: AttackResponse): string {
+    switch (attackResponse) {
+        case AttackResponse.HIT: return "○ 命中";
+        case AttackResponse.DEAD: return "☆ 命中 & 撃沈";
+        case AttackResponse.NEAR: return "△ 波高し";
+        case AttackResponse.MISS: return "× はずれ";
+    }
+    return "";
+}
+
+function prependHistoryRow(turn: number, teamID: TeamID): {
+    cell_operation: HTMLTableCellElement,
+    cell_result: HTMLTableCellElement
+} {
+    const tr = OP_HISTORY_TABLE_BODY.insertRow(0);
+    tr.classList.add(teamID == TeamID.TEAM_A ? "teamA" : "teamB");
+
+    const cell_turnCount = tr.insertCell();
+    const cell_teamID = tr.insertCell();
+    const cell_operation = tr.insertCell();
+    const cell_result = tr.insertCell();
+    cell_turnCount.innerText = zeroPadding(turn, 2);
+    cell_teamID.innerText = teamID == TeamID.TEAM_A ? "A" : "B";
+
+    return {cell_operation: cell_operation, cell_result: cell_result};
+}
+
+
+function createCellCodeTagElem(cellPos: CellPos): HTMLElement {
+    const e = document.createElement('span');
+    e.classList.add('cell-code');
+    e.innerText = cellAddrCode(cellPos);
+    return e;
+}
+
+
+function prependAttackHistory(turn: number, teamID: TeamID, attackTo: CellPos, response: AttackResponse): void {
+    const rowCells = prependHistoryRow(turn, teamID);
+    const attackToTagElem = createCellCodeTagElem(attackTo);
+    rowCells.cell_operation.append(attackToTagElem, " に攻撃");
+    rowCells.cell_result.innerText = responseStringJP(response);
+}
+
+
+function prependMoveHistory(turn: number, teamID: TeamID, moveFrom: CellPos, moveTo: CellPos): void {
+    const rowCells = prependHistoryRow(turn, teamID);
+    const fromPosTagElem = createCellCodeTagElem(moveFrom);
+    const destPosTagElem = createCellCodeTagElem(moveTo);
+    const vec = calcMoveVector(moveFrom, moveTo);
+    const dirStr = directionToStringJP(vec.dir);
+    rowCells.cell_operation.append(fromPosTagElem, "から" + dirStr + "に" + vec.length + "マス移動");
+    rowCells.cell_result.append(destPosTagElem, " 着");
+}
+
 
 function setGuideMessage(message: string, color: string): void {
     GUIDE_MESSAGE_ELEM.style.color = color;
@@ -1472,6 +1569,7 @@ class BattleScene implements Scene, CellEventHandler {
     currentState: BattleSceneState;
 
     attackDestPos: CellPos;
+    attackResponse: AttackResponse;
     attackableCellGrid: boolean[][];
 
     moveActor: CellPos;
@@ -1621,8 +1719,14 @@ class BattleScene implements Scene, CellEventHandler {
     }
 
     incrementTurn(): void {
+        if (this.attackDestPos != null) {
+            prependAttackHistory(this.currentTurnCount, this.currentTurn, this.attackDestPos, this.attackResponse);
+        } else if (this.moveActor != null && this.moveDest != null) {
+            prependMoveHistory(this.currentTurnCount, this.currentTurn, this.moveActor, this.moveDest);
+        }
         this.currentTurnCount += 1;
         this.currentTurn = opponentTeamID(this.currentTurn);
+        this.attackDestPos = this.attackResponse = this.moveActor = this.moveDest = null;
     }
 
     onMouseClickCell(c: Cell): void {
@@ -1720,6 +1824,7 @@ class BattleScene implements Scene, CellEventHandler {
                 const opponentSubmarines = this.submarineManager.getSubmarineArrayOfTeam(opponentTeamID(this.currentTurn));
                 const attackResponse = BattleScene.judgeAttackResult(this.attackDestPos, opponentSubmarines);
                 const attackedCellPos = this.gridView.getCellPosition(this.attackDestPos.row, this.attackDestPos.col);
+                this.attackResponse = attackResponse;
 
                 const animX = attackedCellPos.x + this.gridView.cellWidth / 2;
                 const animY = attackedCellPos.y;
