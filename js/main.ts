@@ -102,9 +102,9 @@ abstract class MyColor {
 }
 
 
-abstract class MyAnimation {
+abstract class MyTransition {
     private _timestampAtRegistered = -1;
-    private _timestampAtAnimStarted = -1;
+    private _timestampAtTransitionStarted = -1;
 
     protected constructor(
         readonly delay: number,
@@ -116,7 +116,7 @@ abstract class MyAnimation {
     abstract handle(elapsedTimeMilli: number): void;
 
     start(): void {
-        AnimationExecutor.registerAnimation(this);
+        TransitionExecutor.registerTransition(this);
     }
 
     update(timestamp: number): void {
@@ -132,18 +132,23 @@ abstract class MyAnimation {
             return;
         }
 
-        if (this._timestampAtAnimStarted == -1) {
-            this._timestampAtAnimStarted = timestamp;
+        if (this._timestampAtTransitionStarted == -1) {
+            this._timestampAtTransitionStarted = timestamp;
         }
-        const elapsedTimeFromAnimStarted = timestamp - this._timestampAtAnimStarted;
+        const elapsedTimeFromAnimStarted = timestamp - this._timestampAtTransitionStarted;
         this.handle(elapsedTimeFromAnimStarted);
     }
 }
 
 
-class TimeRatioAnimation extends MyAnimation {
+abstract class MyAnimation extends MyTransition {
+    abstract draw(ctx: CanvasRenderingContext2D): void;
+}
+
+
+class TimeRatioTransition extends MyTransition {
     readonly lengthTime: number;
-    readonly task: (ratio: number) => boolean; // アニメーションを続けるなら true, 続けないなら false
+    readonly task: (ratio: number) => boolean; // トランジションを続けるなら true, 続けないなら false
 
     private _hasAnimFinished = false;
 
@@ -219,7 +224,7 @@ class SpriteSheetAnimation extends MyAnimation {
 }
 
 
-class BlinkAnimation extends MyAnimation {
+class BlinkTransition extends MyTransition {
     private _hasAnimFinished: boolean;
 
     constructor(
@@ -248,25 +253,25 @@ class BlinkAnimation extends MyAnimation {
 }
 
 
-abstract class AnimationExecutor {
-    private static _animationList: MyAnimation[] = [];
+abstract class TransitionExecutor {
+    private static readonly _transitionList: MyTransition[] = [];
 
-    static registerAnimation(anim: MyAnimation): void {
-        anim.update = anim.update.bind(anim);
-        anim.hasAnimFinished = anim.hasAnimFinished.bind(anim);
-        this._animationList.push(anim);
+    static registerTransition(trans: MyTransition): void {
+        trans.update = trans.update.bind(trans);
+        trans.hasAnimFinished = trans.hasAnimFinished.bind(trans);
+        this._transitionList.push(trans);
     }
 
     static update(timestamp: number): void {
         let i = 0;
 
-        while (i < this._animationList.length) {
-            const anim = this._animationList[i];
-            anim.update(timestamp);
+        while (i < this._transitionList.length) {
+            const trans = this._transitionList[i];
+            trans.update(timestamp);
 
-            if (anim.hasAnimFinished()) {
-                anim.onAnimFinish();
-                this._animationList.splice(i, 1);
+            if (trans.hasAnimFinished()) {
+                trans.onAnimFinish();
+                this._transitionList.splice(i, 1);
             } else {
                 ++i;
             }
@@ -309,7 +314,7 @@ class Visualizer implements SceneManager {
         this.curScene = firstScene;
         this.curScene.setup();
         const animationLoop = (timestamp: number): void => {
-            AnimationExecutor.update(timestamp);
+            TransitionExecutor.update(timestamp);
             this.curScene.update(timestamp);
             this.ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             this.curScene.draw(this.ctx);
@@ -697,7 +702,7 @@ class SubmarineManager {
                 submarine.visible = true;
                 submarine.hp -= 1;
                 if (submarine.hp <= 0) {
-                    new TimeRatioAnimation(500, 100,
+                    new TimeRatioTransition(500, 100,
                         (ratio: number): boolean => {
                             submarine.opacity = 1.0 - ratio;
                             return true;
@@ -708,7 +713,7 @@ class SubmarineManager {
                 }
             }
 
-            new BlinkAnimation(submarine, 1000, 100, 200, onAnimFinish_wrap).start();
+            new BlinkTransition(submarine, 1000, 100, 200, onAnimFinish_wrap).start();
         }
     }
 
@@ -767,7 +772,7 @@ class SubmarineManager {
             onAnimFinish()
         }
 
-        new TimeRatioAnimation(animTimeLength, 100, animTask, onAnimFinishWrap)
+        new TimeRatioTransition(animTimeLength, 100, animTask, onAnimFinishWrap)
             .start();
     }
 
@@ -968,13 +973,14 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
             this.battleButton.onclick = this._onBattleButtonClicked.bind(this);
         }
         {
-            function createRadioButton (name: string): HTMLInputElement {
+            function createRadioButton(name: string): HTMLInputElement {
                 const radioButton = document.createElement('input') as HTMLInputElement;
                 radioButton.name = name;
                 radioButton.type = 'radio';
                 return radioButton;
             }
-            function createLabelWithinRadioButton (labelValue: string, radio: HTMLInputElement, height: number): HTMLLabelElement {
+
+            function createLabelWithinRadioButton(labelValue: string, radio: HTMLInputElement, height: number): HTMLLabelElement {
                 const label = document.createElement('label') as HTMLLabelElement;
                 label.innerText = labelValue;
                 label.prepend(radio);
@@ -985,6 +991,7 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
                 label.style.position = 'absolute';
                 return label;
             }
+
             this.teamAFirstTurnRadioButton = createRadioButton('first-turn-team');
             this.teamBFirstTurnRadioButton = createRadioButton('first-turn-team');
             this.teamAFirstTurnRadioButton.onchange = this._onFirstTurnTeamRadioButtonChange.bind(this);
@@ -999,17 +1006,17 @@ class InitialPositionInputScene implements Scene, CellEventHandler {
         }
     }
 
-    private static _drawBack(ctx: CanvasRenderingContext2D): void {
-        ctx.fillStyle = MyColor.backGround;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    }
-
     static setDefaultGuideMessage() {
         setGuideMessage("初期配置を設定してください。各チームにつき ちょうど4隻 配置する必要があります。\nセルをクリックして潜水艦の有無を切り替えられます。", "");
     }
 
     static setSubmarineCountAllSatisfiedGuideMessage() {
         setGuideMessage("両チームともに配置がちょうど4隻になりました。\n先攻のチームが正しいことを確認してください。[Start Battle] ボタンで対戦を開始します。", "forestgreen");
+    }
+
+    private static _drawBack(ctx: CanvasRenderingContext2D): void {
+        ctx.fillStyle = MyColor.backGround;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
     setup(): void {
